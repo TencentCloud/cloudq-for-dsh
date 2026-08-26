@@ -1,61 +1,61 @@
 # dsh-cloudq
 
-CloudQ integration for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness). It adds a CloudQ mode to the Web profile, bundles the `cloudq` skill, exposes CloudQ usage and architecture views, and provides local credential and plugin-management settings.
+面向 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 的 CloudQ 集成插件。插件为 Web Profile 提供 CloudQ 模式，内置 `cloudq` Skill，并提供 CloudQ 用量、架构视图、本地凭证配置和插件管理能力。
 
-## Requirements
+## 环境要求
 
 - Node.js `>=22.19.0`
-- DeepSeek Harness `0.1.1-rc.2` or a compatible newer `0.1.x` release
-- `pnpm` available to the `dsh plugin` command
-- Python 3 available as `python3`
-- macOS or Linux
+- DeepSeek Harness `0.1.1-rc.2` 或兼容的更高 `0.1.x` 版本
+- `dsh plugin` 命令可调用 `pnpm`
+- 可通过 `python3` 命令运行 Python 3
+- macOS 或 Linux
 
-## Install
+## 安装
 
 ```sh
 dsh plugin --profile web add dsh-cloudq
 ```
 
-Restart the Web profile after installation:
+安装完成后重启 Web Profile：
 
 ```sh
 dsh --profile web
 ```
 
-Open the URL printed by DSH. The conversation input area and sidebar will expose the CloudQ entry. You can also invoke the bundled skill explicitly with `/cloudq`.
+打开 DSH 输出的访问地址，即可在对话输入区和侧边栏看到 CloudQ 入口。也可以通过 `/cloudq` 显式调用内置 Skill。
 
-## Upgrade and remove
+## 升级与卸载
 
 ```sh
 dsh plugin --profile web update dsh-cloudq
 dsh plugin --profile web remove dsh-cloudq
 ```
 
-Restart the Web profile after changing the installed package set.
+修改已安装的插件后，需要重启 Web Profile。
 
-## Credentials
+## 凭证配置
 
-The settings card supports the CloudQ OAuth flow and manually supplied Tencent Cloud `SecretId`/`SecretKey` credentials.
+设置卡片支持 CloudQ OAuth 流程，也支持手动配置腾讯云 `SecretId` 和 `SecretKey`。
 
-- Credentials are stored locally at `~/.tencent-cloudq/credential.json` with owner-only permissions.
-- Secret values are sent to Python helpers through standard input, never command-line arguments.
-- Browser APIs return only credential state and masked identifiers; local credential paths and secret values are not returned.
-- Use the logout action to remove the stored credential.
+- 凭证保存在本机 `~/.tencent-cloudq/credential.json`，文件权限仅允许当前用户访问。
+- 敏感凭证通过标准输入传递给 Python 辅助脚本，不会放入命令行参数。
+- 浏览器接口仅返回凭证状态和脱敏标识，不返回凭证内容或本地凭证路径。
+- 可通过退出登录操作删除本地凭证。
 
-Use credentials with the minimum permissions required for the CloudQ operations you intend to run. The bundled skill can invoke read and write cloud-management operations; review each requested action before approving it.
+请遵循最小权限原则，只授予 CloudQ 操作所需的权限。内置 Skill 可以调用云管理的读写操作，请在批准前检查每项操作的具体内容。
 
-## Security model
+## 安全机制
 
-- Host APIs accept only loopback, same-origin requests.
-- JSON request bodies are limited to 64 KiB.
-- Python helper output is bounded and unexpected internal errors are not returned to the browser.
-- Remote values are inserted with DOM text nodes rather than HTML injection.
-- Download links require HTTPS.
-- No credentials, tokens, or local environment files are included in the npm package.
+- Host API 只接受来自回环地址的同源请求。
+- JSON 请求体大小限制为 64 KiB。
+- Python 辅助脚本的输出大小受到限制，非预期的内部错误不会返回到浏览器。
+- 远程数据通过 DOM 文本节点渲染，不使用 HTML 注入。
+- 下载链接必须使用 HTTPS。
+- npm 包不包含凭证、Token 或本地环境文件。
 
-Security reports can be submitted through the repository issue tracker without including live credentials.
+如需报告安全问题，请通过内部工蜂仓库的 Issue 提交，且不要附带真实凭证。
 
-## Development
+## 本地开发
 
 ```sh
 pnpm install
@@ -67,23 +67,23 @@ pnpm run check:client
 npm pack --dry-run --registry=https://registry.npmjs.org/
 ```
 
-The npm package contains prebuilt Host and Web client artifacts, the bundle patch, the required CloudQ logo, and the bundled skill. Registry installation does not require package build scripts.
+npm 包内包含预构建的 Host 和 Web Client 产物、Bundle Patch、CloudQ 运行时图标以及内置 Skill。用户从 Registry 安装时不需要执行构建脚本。
 
-## Repository layout
+## 目录结构
 
 ```text
-src/                         Host and Web client source
-skills/cloudq/               Bundled CloudQ skill and Python helpers
-assets/cloudq.png            Runtime logo served by the Host
-scripts/                     Build and release checks
-tests/                       Unit, integration, and package-contract tests
-cordis.patch.yml             DSH bundle layer
+src/                         Host 与 Web Client 源码
+skills/cloudq/               内置 CloudQ Skill 与 Python 辅助脚本
+assets/cloudq.png            Host 提供的运行时图标
+scripts/                     构建和发布检查脚本
+tests/                       单元测试、集成测试与包契约测试
+cordis.patch.yml             DSH Bundle 配置层
 ```
 
-## Release
+## 发布
 
-Source changes are reviewed and versioned in the internal Gongfeng repository. npm releases are published to the official registry only after the repository checks and package-install smoke test pass.
+源码变更在内部工蜂仓库完成评审和版本管理。只有仓库检查与安装包冒烟测试全部通过后，才可将 npm 版本发布到官方 Registry。
 
-## License
+## 许可证
 
-MIT. See [`LICENSE`](LICENSE).
+本项目采用 MIT 许可证，详情请参阅 [`LICENSE`](LICENSE)。
