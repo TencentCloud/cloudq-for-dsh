@@ -1,0 +1,30 @@
+# Dependencies
+node_modules/
+
+# Build and test output
+lib/
+dist/
+build/
+coverage/
+*.tsbuildinfo
+
+# Python caches
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Local environment and credentials
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+credential.json
+
+# Logs and temporary files
+*.log
+*.tmp
+*.swp
+.DS_Store

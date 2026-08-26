@@ -1,0 +1,5 @@
+# dsh-cloudq bundle patch: mount the CloudQ entry point into the web composition.
+# The Host registers the CloudQ skill and APIs; dsh.client loads the Web client.
+- insert:
+    - id: ui-dsh-cloudq
+      name: dsh-cloudq
