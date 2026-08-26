@@ -29,7 +29,7 @@
     "README.md",
     "LICENSE"
   ],
-  "author": "2513483494",
+  "author": "jiqixing",
   "keywords": [
     "deepseek-harness",
     "dsh",
@@ -39,12 +39,12 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/2513483494/dsh-cloudq.git"
+    "url": "git+https://git.woa.com/jiqixing/dsh-cloudq.git"
   },
   "bugs": {
-    "url": "https://github.com/2513483494/dsh-cloudq/issues"
+    "url": "https://git.woa.com/jiqixing/dsh-cloudq/issues"
   },
-  "homepage": "https://github.com/2513483494/dsh-cloudq#readme",
+  "homepage": "https://git.woa.com/jiqixing/dsh-cloudq",
   "publishConfig": {
     "access": "public",
     "registry": "https://registry.npmjs.org/"

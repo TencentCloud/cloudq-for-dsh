@@ -82,7 +82,7 @@ cordis.patch.yml             DSH bundle layer
 
 ## Release
 
-The initial release is published manually to the official npm registry. Subsequent tagged releases use npm Trusted Publishing from GitHub Actions; the workflow does not store a long-lived npm token.
+Source changes are reviewed and versioned in the internal Gongfeng repository. npm releases are published to the official registry only after the repository checks and package-install smoke test pass.
 
 ## License
 
