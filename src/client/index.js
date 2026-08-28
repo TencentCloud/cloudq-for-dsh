@@ -1272,11 +1272,144 @@ body.dsh-cloudq-mode-active [class*=composerHero] [class*=root][class*=hero] {
   margin-bottom: 16px;
 }
 .dsh-cloudq-usage__card {
-  flex: 1;
+  flex: 0 1 auto;
+  min-width: 240px;
   padding: 14px 16px;
   border: 1px solid var(--dsw-alias-border-l2, #e1e4e8);
   border-radius: 10px;
   background: var(--dsw-alias-bg-sub, #f7f8fa);
+}
+.dsh-cloudq-usage__card-value-row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.dsh-cloudq-usage__card-unit {
+  font-size: 13px;
+  color: var(--dsw-alias-label-secondary, #626a76);
+}
+.dsh-cloudq-usage__free-badge {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--dsw-alias-state-business-primary-bg, #e8efff);
+  color: var(--dsw-alias-state-business-primary, #315efb);
+  font-size: 12px;
+  cursor: help;
+}
+.dsh-cloudq-usage__free-badge .dsh-cloudq-tooltip {
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity .12s ease;
+}
+.dsh-cloudq-usage__free-badge:hover .dsh-cloudq-tooltip,
+.dsh-cloudq-usage__free-badge:focus-visible .dsh-cloudq-tooltip {
+  opacity: 1;
+  visibility: visible;
+}
+.dsh-cloudq-usage__range {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+.dsh-cloudq-usage__range-picker {
+  position: relative;
+}
+.dsh-cloudq-usage__range-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--dsw-alias-interactive-border, #cdd3da);
+  border-radius: 6px;
+  background: var(--dsw-alias-bg-card, #fff);
+  color: var(--dsw-alias-label-primary, #1d2129);
+  font-size: 12px;
+  cursor: pointer;
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+.dsh-cloudq-usage__range-btn:hover {
+  border-color: var(--dsw-alias-state-business-primary, #315efb);
+}
+.dsh-cloudq-usage__range-picker.is-open .dsh-cloudq-usage__range-btn {
+  border-color: var(--dsw-alias-state-business-primary, #315efb);
+  box-shadow: 0 0 0 2px rgba(49, 94, 251, .12);
+}
+.dsh-cloudq-usage__range-btn-chevron {
+  font-size: 10px;
+  color: var(--dsw-alias-label-tertiary, #9aa1ab);
+  transition: transform .15s ease;
+}
+.dsh-cloudq-usage__range-picker.is-open .dsh-cloudq-usage__range-btn-chevron {
+  transform: rotate(180deg);
+}
+.dsh-cloudq-usage__range-menu {
+  position: absolute;
+  z-index: 1400;
+  top: calc(100% + 6px);
+  left: 0;
+  min-width: 136px;
+  padding: 4px;
+  border: 1px solid var(--dsw-alias-border-l2, #e1e4e8);
+  border-radius: 8px;
+  background: var(--dsw-alias-bg-card, #fff);
+  box-shadow: 0 8px 24px rgba(29, 33, 41, .12);
+}
+.dsh-cloudq-usage__range-option {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--dsw-alias-label-primary, #1d2129);
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+.dsh-cloudq-usage__range-option:hover {
+  background: var(--dsw-alias-bg-sub, #f2f4f8);
+}
+.dsh-cloudq-usage__range-option.is-active {
+  color: var(--dsw-alias-state-business-primary, #315efb);
+  font-weight: 500;
+}
+.dsh-cloudq-usage__range-option-check {
+  width: 14px;
+  flex: none;
+  color: var(--dsw-alias-state-business-primary, #315efb);
+  visibility: hidden;
+}
+.dsh-cloudq-usage__range-option.is-active .dsh-cloudq-usage__range-option-check {
+  visibility: visible;
+}
+.dsh-cloudq-usage__date {
+  height: 28px;
+  padding: 0 8px;
+  border: 1px solid var(--dsw-alias-interactive-border, #cdd3da);
+  border-radius: 6px;
+  background: var(--dsw-alias-bg-card, #fff);
+  color: var(--dsw-alias-label-primary, #1d2129);
+  font-size: 12px;
+  outline: none;
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+.dsh-cloudq-usage__date:focus {
+  border-color: var(--dsw-alias-state-business-primary, #315efb);
+  box-shadow: 0 0 0 2px rgba(49, 94, 251, .12);
+}
+.dsh-cloudq-usage__range-error {
+  font-size: 12px;
+  color: var(--dsw-alias-state-danger, #d54941);
 }
 .dsh-cloudq-usage__card-label {
   font-size: 12px;
@@ -1892,21 +2025,39 @@ const API_ARCH_DIRECTORIES = '/api/dsh-cloudq/architecture/directories'
 const API_ARCH_LIST = '/api/dsh-cloudq/architecture/list'
 const CLOUDQ_ARCH_FOLDER_KEY = 'dsh-cloudq.architecture-folder-id'
 
-// Last-week default range for the usage detail query.
-function defaultUsageRange() {
-  const end = new Date()
-  const start = new Date(end.getTime() - 7 * 24 * 60 * 60 * 1000)
-  const fmt = (d) => {
-    const pad = (n) => String(n).padStart(2, '0')
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
+// Usage detail time range: presets matching the CloudQ console plus a custom
+// date pair. `usagePreset` persists while the panel is open.
+const USAGE_RANGE_PRESETS = [
+  { id: '3d', label: '最近 3 天', days: 3 },
+  { id: '7d', label: '最近 1 周', days: 7 },
+  { id: '30d', label: '最近 1 月', days: 30 },
+  { id: 'custom', label: '自定义', days: 0 },
+]
+let usagePreset = '7d'
+let usageCustomStart = ''
+let usageCustomEnd = ''
+
+function formatUsageTimestamp(d) {
+  const pad = (n) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
+}
+
+/** Resolve the current range to API timestamps; null when custom dates are incomplete. */
+function usageRangeTimestamps() {
+  if (usagePreset === 'custom') {
+    if (!usageCustomStart || !usageCustomEnd) return null
+    return { start: `${usageCustomStart} 00:00:00`, end: `${usageCustomEnd} 23:59:59` }
   }
-  return { start: fmt(start), end: fmt(end) }
+  const preset = USAGE_RANGE_PRESETS.find((item) => item.id === usagePreset) ?? USAGE_RANGE_PRESETS[1]
+  const end = new Date()
+  const start = new Date(end.getTime() - preset.days * 24 * 60 * 60 * 1000)
+  return { start: formatUsageTimestamp(start), end: formatUsageTimestamp(end) }
 }
 
 function formatCredits(value) {
   const num = typeof value === 'number' ? value : Number(value)
   if (!Number.isFinite(num)) return '—'
-  return num.toFixed(2)
+  return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
 function formatDateTime(raw) {
@@ -1988,107 +2139,239 @@ let architecturePickerCleanup = null
 
 function renderUsageView() {
   panelBody.textContent = ''
-  const range = defaultUsageRange()
-  const hint = document.createElement('div')
-  hint.className = 'dsh-cloudq-panel__hint'
-  hint.textContent = '正在加载用量…'
-  panelBody.appendChild(hint)
 
-  cloudqRequest(`${API_USAGE}?start=${encodeURIComponent(range.start)}&end=${encodeURIComponent(range.end)}`)
-    .then((data) => {
-      if (panelView !== 'usage' || !panelExpanded) return
-      panelBody.textContent = ''
-      const overview = data.overview ?? {}
-      const rows = Array.isArray(data.detail) ? data.detail : []
+  // Overview: only the cumulative consumed credits, matching the CloudQ
+  // console card (公测期免费 badge keeps its billing-notice tooltip).
+  const overviewWrap = document.createElement('div')
+  overviewWrap.className = 'dsh-cloudq-usage__overview'
+  const card = document.createElement('div')
+  card.className = 'dsh-cloudq-usage__card'
+  const label = document.createElement('div')
+  label.className = 'dsh-cloudq-usage__card-label'
+  label.textContent = '累计消耗 Credit'
+  const valueRow = document.createElement('div')
+  valueRow.className = 'dsh-cloudq-usage__card-value-row'
+  const value = document.createElement('span')
+  value.className = 'dsh-cloudq-usage__card-value'
+  value.textContent = '…'
+  const unit = document.createElement('span')
+  unit.className = 'dsh-cloudq-usage__card-unit'
+  unit.textContent = '个'
+  const freeBadge = document.createElement('span')
+  freeBadge.className = 'dsh-cloudq-usage__free-badge'
+  freeBadge.textContent = '公测期免费 ⓘ'
+  freeBadge.tabIndex = 0
+  const freeBadgeTip = document.createElement('span')
+  freeBadgeTip.className = 'dsh-cloudq-tooltip'
+  freeBadgeTip.setAttribute('role', 'tooltip')
+  freeBadgeTip.textContent = '正式计费将提前 1 个月通知'
+  freeBadge.appendChild(freeBadgeTip)
+  valueRow.append(value, unit, freeBadge)
+  card.append(label, valueRow)
+  overviewWrap.appendChild(card)
+  panelBody.appendChild(overviewWrap)
 
-      const overviewWrap = document.createElement('div')
-      overviewWrap.className = 'dsh-cloudq-usage__overview'
+  // Time range selector: presets + a custom date pair. Custom dropdown keeps
+  // the console-style look instead of the native <select> popup.
+  const rangeBar = document.createElement('div')
+  rangeBar.className = 'dsh-cloudq-usage__range'
 
-      const createUsageCard = (labelText, valueText, detailText) => {
-        const card = document.createElement('div')
-        card.className = 'dsh-cloudq-usage__card'
-        const label = document.createElement('div')
-        label.className = 'dsh-cloudq-usage__card-label'
-        label.textContent = labelText
-        const value = document.createElement('div')
-        value.className = 'dsh-cloudq-usage__card-value'
-        value.textContent = valueText
-        const detail = document.createElement('div')
-        detail.className = 'dsh-cloudq-usage__card-sub'
-        detail.textContent = detailText
-        card.append(label, value, detail)
-        return card
-      }
+  const picker = document.createElement('div')
+  picker.className = 'dsh-cloudq-usage__range-picker'
+  const pickerBtn = document.createElement('button')
+  pickerBtn.type = 'button'
+  pickerBtn.className = 'dsh-cloudq-usage__range-btn'
+  pickerBtn.setAttribute('aria-haspopup', 'listbox')
+  pickerBtn.setAttribute('aria-expanded', 'false')
+  pickerBtn.setAttribute('aria-label', '用量时间范围')
+  const pickerLabel = document.createElement('span')
+  pickerLabel.className = 'dsh-cloudq-usage__range-btn-label'
+  const pickerChevron = document.createElement('span')
+  pickerChevron.className = 'dsh-cloudq-usage__range-btn-chevron'
+  pickerChevron.textContent = '▾'
+  pickerBtn.append(pickerLabel, pickerChevron)
 
-      const cardTotal = createUsageCard(
-        '剩余积分',
-        formatCredits(overview.TotalCredits),
-        `自 ${overview.TotalStartDate ?? '—'} 起累计`,
-      )
-      const monthly = overview.MonthlyCredits
-      const cardMonthly = createUsageCard(
-        '本月积分',
-        monthly === null || monthly === undefined ? '—' : formatCredits(monthly),
-        overview.MonthlyStartDate ? `起于 ${overview.MonthlyStartDate}` : '暂无月度数据',
-      )
+  const menu = document.createElement('div')
+  menu.className = 'dsh-cloudq-usage__range-menu'
+  menu.setAttribute('role', 'listbox')
+  menu.hidden = true
+  const optionButtons = new Map()
+  for (const preset of USAGE_RANGE_PRESETS) {
+    const option = document.createElement('button')
+    option.type = 'button'
+    option.className = 'dsh-cloudq-usage__range-option'
+    option.setAttribute('role', 'option')
+    const check = document.createElement('span')
+    check.className = 'dsh-cloudq-usage__range-option-check'
+    check.textContent = '✓'
+    const text = document.createElement('span')
+    text.textContent = preset.label
+    option.append(check, text)
+    option.addEventListener('click', () => {
+      usagePreset = preset.id
+      syncPicker()
+      closeMenu()
+      syncCustomVisibility()
+      loadUsage()
+    })
+    optionButtons.set(preset.id, option)
+    menu.appendChild(option)
+  }
 
-      overviewWrap.append(cardTotal, cardMonthly)
+  const syncPicker = () => {
+    const active = USAGE_RANGE_PRESETS.find((item) => item.id === usagePreset) ?? USAGE_RANGE_PRESETS[1]
+    pickerLabel.textContent = active.label
+    for (const [id, option] of optionButtons) {
+      const isActive = id === active.id
+      option.classList.toggle('is-active', isActive)
+      option.setAttribute('aria-selected', String(isActive))
+    }
+  }
 
-      const table = document.createElement('table')
-      table.className = 'dsh-cloudq-usage__table'
-      const thead = document.createElement('thead')
-      const headerRow = document.createElement('tr')
-      for (const heading of ['时间', '渠道', '内容', '积分']) {
-        const cell = document.createElement('th')
-        cell.textContent = heading
-        headerRow.appendChild(cell)
-      }
-      thead.appendChild(headerRow)
-      table.appendChild(thead)
+  const pickerAbort = new AbortController()
+  const closeMenu = () => {
+    menu.hidden = true
+    picker.classList.remove('is-open')
+    pickerBtn.setAttribute('aria-expanded', 'false')
+  }
+  pickerBtn.addEventListener('click', () => {
+    const willOpen = menu.hidden
+    menu.hidden = !willOpen
+    picker.classList.toggle('is-open', willOpen)
+    pickerBtn.setAttribute('aria-expanded', String(willOpen))
+  })
+  document.addEventListener('mousedown', (event) => {
+    if (!menu.isConnected) {
+      pickerAbort.abort()
+      return
+    }
+    if (!picker.contains(event.target)) closeMenu()
+  }, { signal: pickerAbort.signal })
+  document.addEventListener('keydown', (event) => {
+    if (!menu.isConnected) return
+    if (event.key === 'Escape') closeMenu()
+  }, { signal: pickerAbort.signal })
+  syncPicker()
 
-      const tbody = document.createElement('tbody')
-      if (rows.length === 0) {
-        const tr = document.createElement('tr')
-        const empty = document.createElement('td')
-        empty.colSpan = 4
-        empty.className = 'dsh-cloudq-usage__table__empty'
-        empty.textContent = '近 7 天暂无用量记录'
-        tr.appendChild(empty)
-        tbody.appendChild(tr)
-      } else {
-        for (const row of rows) {
-          const tr = document.createElement('tr')
-          const time = document.createElement('td')
-          time.textContent = formatDateTime(row.StartTime)
-          const channel = document.createElement('td')
-          channel.textContent = row.Channel ?? '—'
-          const message = document.createElement('td')
-          const msgSpan = document.createElement('span')
-          msgSpan.className = 'dsh-cloudq-usage__table__message'
-          msgSpan.textContent = row.Message ?? ''
-          message.appendChild(msgSpan)
-          const credits = document.createElement('td')
-          credits.className = 'dsh-cloudq-usage__table__credits'
-          credits.textContent = formatCredits(row.Credits)
-          tr.appendChild(time)
-          tr.appendChild(channel)
-          tr.appendChild(message)
-          tr.appendChild(credits)
-          tbody.appendChild(tr)
+  const startDate = document.createElement('input')
+  startDate.type = 'date'
+  startDate.className = 'dsh-cloudq-usage__date'
+  startDate.setAttribute('aria-label', '开始日期')
+  startDate.value = usageCustomStart
+  const endDate = document.createElement('input')
+  endDate.type = 'date'
+  endDate.className = 'dsh-cloudq-usage__date'
+  endDate.setAttribute('aria-label', '结束日期')
+  endDate.value = usageCustomEnd
+  const rangeError = document.createElement('span')
+  rangeError.className = 'dsh-cloudq-usage__range-error'
+
+  const syncCustomVisibility = () => {
+    const custom = usagePreset === 'custom'
+    startDate.hidden = !custom
+    endDate.hidden = !custom
+  }
+
+  const tableWrap = document.createElement('div')
+
+  const loadUsage = () => {
+    const range = usageRangeTimestamps()
+    rangeError.textContent = ''
+    if (!range) {
+      tableWrap.textContent = ''
+      const hint = document.createElement('div')
+      hint.className = 'dsh-cloudq-panel__hint'
+      hint.textContent = '请选择开始日期与结束日期。'
+      tableWrap.appendChild(hint)
+      return
+    }
+    if (usagePreset === 'custom' && usageCustomStart > usageCustomEnd) {
+      rangeError.textContent = '开始日期不能晚于结束日期。'
+      return
+    }
+    tableWrap.textContent = ''
+    const hint = document.createElement('div')
+    hint.className = 'dsh-cloudq-panel__hint'
+    hint.textContent = '正在加载用量…'
+    tableWrap.appendChild(hint)
+
+    cloudqRequest(`${API_USAGE}?start=${encodeURIComponent(range.start)}&end=${encodeURIComponent(range.end)}`)
+      .then((data) => {
+        if (panelView !== 'usage' || !panelExpanded) return
+        value.textContent = formatCredits(data.overview?.TotalCredits)
+        const rows = Array.isArray(data.detail) ? data.detail : []
+        tableWrap.textContent = ''
+
+        const table = document.createElement('table')
+        table.className = 'dsh-cloudq-usage__table'
+        const thead = document.createElement('thead')
+        const headerRow = document.createElement('tr')
+        for (const heading of ['时间', '渠道', '内容', '积分']) {
+          const cell = document.createElement('th')
+          cell.textContent = heading
+          headerRow.appendChild(cell)
         }
-      }
-      table.appendChild(tbody)
-      panelBody.appendChild(overviewWrap)
-      panelBody.appendChild(table)
-    })
-    .catch((error) => {
-      if (!panelExpanded) return
-      panelBody.textContent = ''
-      const err = document.createElement('div')
-      err.className = 'dsh-cloudq-panel__error'
-      err.textContent = cloudqPanelErrorText(error, '用量加载失败')
-      panelBody.appendChild(err)
-    })
+        thead.appendChild(headerRow)
+        table.appendChild(thead)
+
+        const tbody = document.createElement('tbody')
+        if (rows.length === 0) {
+          const tr = document.createElement('tr')
+          const empty = document.createElement('td')
+          empty.colSpan = 4
+          empty.className = 'dsh-cloudq-usage__table__empty'
+          empty.textContent = '当前时间范围内暂无用量记录'
+          tr.appendChild(empty)
+          tbody.appendChild(tr)
+        } else {
+          for (const row of rows) {
+            const tr = document.createElement('tr')
+            const time = document.createElement('td')
+            time.textContent = formatDateTime(row.StartTime)
+            const channel = document.createElement('td')
+            channel.textContent = row.Channel ?? '—'
+            const message = document.createElement('td')
+            const msgSpan = document.createElement('span')
+            msgSpan.className = 'dsh-cloudq-usage__table__message'
+            msgSpan.textContent = row.Message ?? ''
+            message.appendChild(msgSpan)
+            const credits = document.createElement('td')
+            credits.className = 'dsh-cloudq-usage__table__credits'
+            credits.textContent = formatCredits(row.Credits)
+            tr.appendChild(time)
+            tr.appendChild(channel)
+            tr.appendChild(message)
+            tr.appendChild(credits)
+            tbody.appendChild(tr)
+          }
+        }
+        table.appendChild(tbody)
+        tableWrap.appendChild(table)
+      })
+      .catch((error) => {
+        if (panelView !== 'usage' || !panelExpanded) return
+        tableWrap.textContent = ''
+        const err = document.createElement('div')
+        err.className = 'dsh-cloudq-panel__error'
+        err.textContent = cloudqPanelErrorText(error, '用量加载失败')
+        tableWrap.appendChild(err)
+      })
+  }
+
+  const onCustomDateChange = () => {
+    usageCustomStart = startDate.value
+    usageCustomEnd = endDate.value
+    loadUsage()
+  }
+  startDate.addEventListener('change', onCustomDateChange)
+  endDate.addEventListener('change', onCustomDateChange)
+
+  picker.append(pickerBtn, menu)
+  rangeBar.append(picker, startDate, endDate, rangeError)
+  syncCustomVisibility()
+  panelBody.appendChild(rangeBar)
+  panelBody.appendChild(tableWrap)
+  loadUsage()
 }
 
 const INSPIRATION_TABS = [
