@@ -29,7 +29,7 @@
     "README.md",
     "LICENSE"
   ],
-  "author": "jiqixing",
+  "author": "Tencent Cloud",
   "keywords": [
     "deepseek-harness",
     "dsh",
@@ -39,12 +39,12 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://git.woa.com/jiqixing/dsh-cloudq.git"
+    "url": "git+https://github.com/TencentCloud/cloudq-for-dsh.git"
   },
   "bugs": {
-    "url": "https://git.woa.com/jiqixing/dsh-cloudq/issues"
+    "url": "https://github.com/TencentCloud/cloudq-for-dsh/issues"
   },
-  "homepage": "https://git.woa.com/jiqixing/dsh-cloudq",
+  "homepage": "https://github.com/TencentCloud/cloudq-for-dsh#readme",
   "publishConfig": {
     "access": "public",
     "registry": "https://registry.npmjs.org/"

@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22.19.0'
+          package-manager-cache: false
+      - run: corepack enable
+      - run: corepack prepare pnpm@11.7.0 --activate
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      - run: pnpm run lint
+      - run: pnpm run typecheck
+      - run: pnpm run test:all
+      - run: pnpm run build
+      - run: pnpm run check:client
+      - name: Build and inspect package
+        run: |
+          npm pack --registry=https://registry.npmjs.org/
+          tar -tzf dsh-cloudq-*.tgz > package-files.txt
+          for path in lib/index.js lib/client.js assets/cloudq.png skills/cloudq/SKILL.md; do
+            grep -Fx "package/$path" package-files.txt
+          done
+          if grep -E '(__pycache__|\.pyc$)' package-files.txt; then exit 1; fi
+      - name: Verify packed Host entry
+        run: |
+          mkdir -p /tmp/dsh-cloudq-package
+          tar -xzf dsh-cloudq-*.tgz -C /tmp/dsh-cloudq-package
+          cd /tmp/dsh-cloudq-package/package
+          npm install --ignore-scripts --omit=dev --registry=https://registry.npmjs.org/
+          node --input-type=module -e "const mod=await import('./lib/index.js');if(typeof mod.apply!=='function'||!Array.isArray(mod.inject))process.exit(1)"

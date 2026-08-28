@@ -10,7 +10,9 @@ describe('npm and DSH package contract', () => {
   it('declares the public package, repository, runtime files, and official registry', () => {
     expect(manifest.name).toBe('dsh-cloudq')
     expect(manifest.version).toBe('0.1.0')
-    expect(manifest.repository.url).toBe('git+https://git.woa.com/jiqixing/dsh-cloudq.git')
+    expect(manifest.repository.url).toBe('git+https://github.com/TencentCloud/cloudq-for-dsh.git')
+    expect(manifest.homepage).toBe('https://github.com/TencentCloud/cloudq-for-dsh#readme')
+    expect(manifest.bugs.url).toBe('https://github.com/TencentCloud/cloudq-for-dsh/issues')
     expect(manifest.publishConfig).toEqual({
       access: 'public',
       registry: 'https://registry.npmjs.org/',

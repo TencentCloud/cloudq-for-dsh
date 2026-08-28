@@ -53,7 +53,7 @@ dsh plugin --profile web remove dsh-cloudq
 - 下载链接必须使用 HTTPS。
 - npm 包不包含凭证、Token 或本地环境文件。
 
-如需报告安全问题，请通过内部工蜂仓库的 Issue 提交，且不要附带真实凭证。
+如需报告安全问题，请通过 [GitHub Issues](https://github.com/TencentCloud/cloudq-for-dsh/issues) 提交，且不要附带真实凭证。
 
 ## 本地开发
 
@@ -82,7 +82,7 @@ cordis.patch.yml             DSH Bundle 配置层
 
 ## 发布
 
-源码变更在内部工蜂仓库完成评审和版本管理。只有仓库检查与安装包冒烟测试全部通过后，才可将 npm 版本发布到官方 Registry。
+源码在 [TencentCloud/cloudq-for-dsh](https://github.com/TencentCloud/cloudq-for-dsh) 完成评审和版本管理。只有仓库检查与安装包冒烟测试全部通过后，才可将 npm 版本发布到官方 Registry。
 
 ## 许可证
 
