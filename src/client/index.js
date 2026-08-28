@@ -96,6 +96,11 @@ const CSS = `
   background: var(--dsw-alias-bg-layer-3, #fff);
   color: var(--dsw-alias-label-primary, #17191c);
 }
+.dsh-cloudq-settings-card *,
+.dsh-cloudq-settings-card *::before,
+.dsh-cloudq-settings-card *::after {
+  box-sizing: border-box;
+}
 .dsh-cloudq-settings-card__summary {
   padding: 15px 16px;
 }
@@ -211,10 +216,11 @@ const CSS = `
   flex-wrap: wrap;
 }
 .dsh-cloudq-settings-card__actions--stacked {
-  flex-direction: column-reverse;
+  flex-direction: column;
+  align-items: stretch;
 }
 .dsh-cloudq-settings-card__actions--stacked button {
-  width: 100%;
+  align-self: flex-end;
 }
 .dsh-cloudq-settings-card__btn {
   display: inline-flex;
@@ -2080,7 +2086,7 @@ function renderUsageView() {
       panelBody.textContent = ''
       const err = document.createElement('div')
       err.className = 'dsh-cloudq-panel__error'
-      err.textContent = `用量加载失败：${error.message}`
+      err.textContent = cloudqPanelErrorText(error, '用量加载失败')
       panelBody.appendChild(err)
     })
 }
@@ -2169,7 +2175,7 @@ function renderInspirationView() {
       list.textContent = ''
       const err = document.createElement('div')
       err.className = 'dsh-cloudq-panel__error'
-      err.textContent = `灵感加载失败：${error instanceof Error ? error.message : '未知错误'}`
+      err.textContent = cloudqPanelErrorText(error, '灵感加载失败')
       list.appendChild(err)
     })
 }
@@ -2327,7 +2333,7 @@ function renderArtifactView({ force = false } = {}) {
       panelBody.textContent = ''
       const err = document.createElement('div')
       err.className = 'dsh-cloudq-panel__error'
-      err.textContent = `制品加载失败：${error instanceof Error ? error.message : '未知错误'}`
+      err.textContent = cloudqPanelErrorText(error, '制品加载失败')
       panelBody.appendChild(err)
     })
 }
@@ -2643,7 +2649,7 @@ function renderArchitectureView() {
           summary.textContent = '加载失败'
           const err = document.createElement('div')
           err.className = 'dsh-cloudq-panel__error'
-          err.textContent = `架构图加载失败：${error instanceof Error ? error.message : '未知错误'}`
+          err.textContent = cloudqPanelErrorText(error, '架构图加载失败')
           grid.appendChild(err)
         })
     }
@@ -2666,7 +2672,7 @@ function renderArchitectureView() {
       panelBody.textContent = ''
       const err = document.createElement('div')
       err.className = 'dsh-cloudq-panel__error'
-      err.textContent = `架构目录加载失败：${error instanceof Error ? error.message : '未知错误'}`
+      err.textContent = cloudqPanelErrorText(error, '架构目录加载失败')
       panelBody.appendChild(err)
     })
 }
@@ -3010,10 +3016,8 @@ function installCloudqHero() {
 // ------------------------------------------------------------------
 
 const API_CREDENTIAL = '/api/dsh-cloudq/credential'
-const API_LOGIN_URL = '/api/dsh-cloudq/login/url'
-const API_LOGIN_SAVE = '/api/dsh-cloudq/login/save'
 const API_LOGOUT = '/api/dsh-cloudq/logout'
-// Manual long-lived AK/SK path, offered alongside the OAuth scan flow.
+// Long-lived AK/SK configuration path (the only credential mode in this release).
 const API_CREDENTIAL_TEST = '/api/dsh-cloudq/credential/test'
 const API_CREDENTIAL_SAVE = '/api/dsh-cloudq/credential/save'
 const CAPI_CONSOLE_URL = 'https://console.cloud.tencent.com/cam/capi'
@@ -3023,6 +3027,17 @@ class CloudQApiError extends Error {
     super(message)
     this.code = code
   }
+}
+
+/**
+ * Panel-facing error text. A missing credential gets an actionable pointer to
+ * the settings card instead of a raw load failure message.
+ */
+function cloudqPanelErrorText(error, prefix) {
+  if (error instanceof CloudQApiError && error.code === 'NeedAuth') {
+    return '尚未配置 AK/SK，请前往「设置 → 插件 → CloudQ」完成配置后重试。'
+  }
+  return `${prefix}：${error instanceof Error ? error.message : '未知错误'}`
 }
 
 async function cloudqRequest(url, init, timeoutMs = 20000) {
@@ -3071,9 +3086,10 @@ function CloudQSettingsCard() {
   const [loading, setLoading] = react.useState(true)
   const [busy, setBusy] = react.useState()
   const [status, setStatus] = react.useState()
-  const [authorizeUrl, setAuthorizeUrl] = react.useState('')
-  const [code, setCode] = react.useState('')
   const [feedback, setFeedback] = react.useState()
+  // Set to true after a successful 测试连接 / 保存配置 this session; combined
+  // with the persisted Host status it drives the "AKSK有效" indicator.
+  const [validated, setValidated] = react.useState(false)
   // Manual long-lived AK/SK entry. Kept in component state only; the
   // values leave the page exactly once (to the loopback Host route) and
   // are never read back — the Host only ever returns a masked SecretId.
@@ -3096,50 +3112,13 @@ function CloudQSettingsCard() {
     refresh()
   }, [refresh])
 
-  const handleGetAuthorizeUrl = async () => {
-    setBusy('url')
-    setFeedback(undefined)
-    try {
-      const response = await cloudqRequest(API_LOGIN_URL, { method: 'POST' })
-      setAuthorizeUrl(response.authorize_url)
-      if (response.authorize_url) {
-        window.open(response.authorize_url, '_blank', 'noopener')
-      }
-    } catch (error) {
-      setFeedback({ kind: 'error', text: error.message })
-    } finally {
-      setBusy(undefined)
-    }
-  }
-
-  const handleSaveCode = async () => {
-    const trimmed = code.trim()
-    if (!trimmed) {
-      setFeedback({ kind: 'error', text: '请先在浏览器中完成授权，然后粘贴授权码。' })
-      return
-    }
-    setBusy('save')
-    setFeedback(undefined)
-    try {
-      const response = await cloudqRequest(API_LOGIN_SAVE, { method: 'POST', body: JSON.stringify({ code: trimmed }) })
-      setStatus(response.status)
-      setCode('')
-      setFeedback({ kind: 'success', text: '登录成功，凭证已保存。' })
-    } catch (error) {
-      setFeedback({ kind: 'error', text: error.message })
-    } finally {
-      setBusy(undefined)
-    }
-  }
-
   const handleLogout = async () => {
     setBusy('logout')
     setFeedback(undefined)
     try {
       const response = await cloudqRequest(API_LOGOUT, { method: 'POST' })
       setStatus({ logged_in: false })
-      setAuthorizeUrl('')
-      setCode('')
+      setValidated(false)
       setFeedback({ kind: 'success', text: '已退出登录。' })
     } catch (error) {
       setFeedback({ kind: 'error', text: error.message })
@@ -3148,8 +3127,8 @@ function CloudQSettingsCard() {
     }
   }
 
-  // Both manual-key actions validate against the live CloudQ API first;
-  // "测试连接" stops there, "保存配置" persists on success.
+  // Both actions validate the pair against the live CloudQ API first:
+  // "测试连接" stops there, "保存配置" persists only after validation passes.
   const submitAccessKey = async (endpoint, kind, successText) => {
     const trimmedId = secretId.trim()
     const trimmedKey = secretKey.trim()
@@ -3170,29 +3149,31 @@ function CloudQSettingsCard() {
         setSecretId('')
         setSecretKey('')
       }
+      setValidated(true)
       setFeedback({ kind: 'success', text: successText })
     } catch (error) {
-      setFeedback({ kind: 'error', text: error.message })
+      setValidated(false)
+      const invalid = error instanceof CloudQApiError
+        && error.code !== 'network-error'
+        && error.code !== 'invalid-response'
+      setFeedback({
+        kind: 'error',
+        text: invalid ? 'AKSK 无效，请检查后重新配置。' : error.message,
+      })
     } finally {
       setBusy(undefined)
     }
   }
 
   const handleTestConnection = () =>
-    submitAccessKey(API_CREDENTIAL_TEST, 'test', '连接成功，该密钥可用于 CloudQ。')
+    submitAccessKey(API_CREDENTIAL_TEST, 'test', '连接成功，AKSK 有效。')
 
   const handleSaveAccessKey = () =>
-    submitAccessKey(API_CREDENTIAL_SAVE, 'save-ak', '配置已保存，密钥已安全存放在 DSH Host 端。')
+    submitAccessKey(API_CREDENTIAL_SAVE, 'save-ak', '配置已保存，AKSK 有效。')
 
   const loggedIn = status?.logged_in === true
-  const expired = status?.expired === true
-  const badgeClass = expired
-    ? 'dsh-cloudq-settings-card__badge dsh-cloudq-settings-card__badge--warn'
-    : loggedIn
-      ? 'dsh-cloudq-settings-card__badge dsh-cloudq-settings-card__badge--ok'
-      : 'dsh-cloudq-settings-card__badge dsh-cloudq-settings-card__badge--off'
-  const badgeText = expired ? '凭证已过期' : loggedIn ? '已登录' : '未登录'
-  const summarySubtitle = loggedIn
+  const akskValid = validated || loggedIn
+  const summarySubtitle = akskValid
     ? '腾讯云 CloudQ 凭证已激活，可直接使用 CloudQ 模式。'
     : '用于在 CloudQ 模式下调用腾讯云 SSE API 与 CLI 工具。'
   const disabled = loading || busy !== undefined
@@ -3229,13 +3210,14 @@ function CloudQSettingsCard() {
                     {
                       className: 'dsh-cloudq-settings-card__summary-right',
                       children: [
-                        react_jsx_runtime.jsx('span', {
-                          className: badgeClass,
-                          children: [
-                            react_jsx_runtime.jsx('span', { className: 'dsh-cloudq-settings-card__badge-dot' }),
-                            badgeText,
-                          ],
-                        }),
+                        akskValid &&
+                          react_jsx_runtime.jsx('span', {
+                            className: 'dsh-cloudq-settings-card__badge dsh-cloudq-settings-card__badge--ok',
+                            children: [
+                              react_jsx_runtime.jsx('span', { className: 'dsh-cloudq-settings-card__badge-dot' }),
+                              'AKSK有效',
+                            ],
+                          }),
                         react_jsx_runtime.jsx('span', {
                           className: `dsh-cloudq-settings-card__chevron${expanded ? ' is-open' : ''}`,
                           children: '▾',
@@ -3256,13 +3238,12 @@ function CloudQSettingsCard() {
                 className: 'dsh-cloudq-settings-card__body',
                 children: [
                   loading
-                    ? react_jsx_runtime.jsx('div', { className: 'dsh-cloudq-settings-card__hint', children: '正在检查 CloudQ 登录状态…' })
+                    ? react_jsx_runtime.jsx('div', { className: 'dsh-cloudq-settings-card__hint', children: '正在检查凭证状态…' })
                     : react_jsx_runtime.jsx(
                         'div',
                         {
                           className: 'dsh-cloudq-settings-card__rows',
                           children: [
-                            react_jsx_runtime.jsx('div', { className: 'dsh-cloudq-settings-card__row', children: [react_jsx_runtime.jsx('span', { className: 'dsh-cloudq-settings-card__row-key', children: '状态' }), react_jsx_runtime.jsx('span', { className: 'dsh-cloudq-settings-card__row-val', children: badgeText })] }),
                             status?.credential_file
                               ? react_jsx_runtime.jsx('div', { className: 'dsh-cloudq-settings-card__row', children: [react_jsx_runtime.jsx('span', { className: 'dsh-cloudq-settings-card__row-key', children: '凭证文件' }), react_jsx_runtime.jsx('span', { className: 'dsh-cloudq-settings-card__row-val', children: status.credential_file })] })
                               : null,
@@ -3295,35 +3276,8 @@ function CloudQSettingsCard() {
                       'div',
                       {
                         children: [
-                          react_jsx_runtime.jsx(
-                            'div',
-                            {
-                              className: 'dsh-cloudq-settings-card__actions',
-                              children: [
-                                react_jsx_runtime.jsx(
-                                  'button',
-                                  {
-                                    type: 'button',
-                                    className: 'dsh-cloudq-settings-card__btn dsh-cloudq-settings-card__btn--primary',
-                                    disabled: disabled,
-                                    onClick: handleGetAuthorizeUrl,
-                                    children: busy === 'url' ? '获取中…' : '获取授权链接',
-                                  },
-                                ),
-                              ],
-                            },
-                          ),
-                          authorizeUrl &&
-                            react_jsx_runtime.jsx('div', { className: 'dsh-cloudq-settings-card__hint', children: '已在新标签页打开授权页。授权完成后，请将页面显示的授权码粘贴到下方：' }),
-                          react_jsx_runtime.jsx('div', {
-                            className: 'dsh-cloudq-settings-card__actions dsh-cloudq-settings-card__actions--stacked',
-                            children: [
-                              react_jsx_runtime.jsx('input', { className: 'dsh-cloudq-settings-card__input', placeholder: '粘贴授权码', value: code, onChange: (event) => setCode(event.target.value) }),
-                              react_jsx_runtime.jsx('button', { type: 'button', className: 'dsh-cloudq-settings-card__btn', disabled: disabled, onClick: handleSaveCode, children: busy === 'save' ? '登录中…' : '完成登录' }),
-                            ],
-                          }),
-                          // Second, independent path: paste a long-lived
-                          // AK/SK pair instead of running the OAuth flow.
+                          // Long-lived AK/SK pair configuration (the only
+                          // credential mode in this release).
                           react_jsx_runtime.jsx('div', {
                             className: 'dsh-cloudq-settings-card__field',
                             children: [

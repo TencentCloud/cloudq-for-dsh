@@ -35,8 +35,8 @@ jobs:
           if grep -E '(__pycache__|\.pyc$)' package-files.txt; then exit 1; fi
       - name: Verify packed Host entry
         run: |
-          mkdir -p /tmp/dsh-cloudq-package
-          tar -xzf dsh-cloudq-*.tgz -C /tmp/dsh-cloudq-package
-          cd /tmp/dsh-cloudq-package/package
-          npm install --ignore-scripts --omit=dev --registry=https://registry.npmjs.org/
-          node --input-type=module -e "const mod=await import('./lib/index.js');if(typeof mod.apply!=='function'||!Array.isArray(mod.inject))process.exit(1)"
+          mkdir -p /tmp/dsh-cloudq-consumer
+          cd /tmp/dsh-cloudq-consumer
+          npm init --yes
+          npm install "$GITHUB_WORKSPACE"/dsh-cloudq-*.tgz --ignore-scripts --omit=dev --registry=https://registry.npmjs.org/
+          node --input-type=module -e "const mod=await import('dsh-cloudq');if(typeof mod.apply!=='function'||!Array.isArray(mod.inject))process.exit(1)"

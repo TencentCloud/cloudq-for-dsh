@@ -3,16 +3,23 @@ import { apply, inject } from '../../src/index.js'
 
 describe('CloudQ Host lifecycle', () => {
   it('registers every contribution through effects and disposes it', () => {
-    const disposers = []
+    const effectDisposers = []
     const routeDisposers = []
     const settingsDisposers = []
     const skillDisposer = vi.fn()
     const routes = []
     const ctx = {
       baseUrl: new URL('file:///tmp/dsh-profile/').href,
-      effect(factory) {
+      // Mirror Cordis fiber semantics: the effect callback's direct return
+      // value must be a disposer; registrations inside the callback are
+      // collected by Cordis itself. Returning a register() result from an
+      // arrow function causes Cordis to reject the effect as invalid.
+      effect(factory, label) {
         const dispose = factory()
-        if (typeof dispose === 'function') disposers.push(dispose)
+        if (typeof dispose !== 'function' && dispose !== undefined && dispose !== null) {
+          throw new TypeError(`Invalid effect: ${label}`)
+        }
+        if (typeof dispose === 'function') effectDisposers.push(dispose)
       },
       settings: {
         register: vi.fn(() => {
@@ -34,7 +41,7 @@ describe('CloudQ Host lifecycle', () => {
       },
     }
 
-    apply(ctx)
+    expect(() => apply(ctx)).not.toThrow()
 
     expect(inject).toEqual(['skills', 'webServer', 'settings', 'sessionQuery'])
     expect(ctx.settings.register).toHaveBeenCalledTimes(2)
@@ -43,9 +50,7 @@ describe('CloudQ Host lifecycle', () => {
     expect(routes.map(route => route.path)).toContain('/api/dsh-cloudq/plugins/toggle')
     expect(routes.map(route => route.path)).toContain('/api/dsh-cloudq/architecture/list')
 
-    for (const dispose of disposers.reverse()) dispose()
-    for (const dispose of settingsDisposers) expect(dispose).toHaveBeenCalledOnce()
-    expect(skillDisposer).toHaveBeenCalledOnce()
+    for (const dispose of effectDisposers.reverse()) dispose()
     for (const dispose of routeDisposers) expect(dispose).toHaveBeenCalledOnce()
   })
 })

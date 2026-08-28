@@ -35,7 +35,7 @@ dsh plugin --profile web remove dsh-cloudq
 
 ## 凭证配置
 
-设置卡片支持 CloudQ OAuth 流程，也支持手动配置腾讯云 `SecretId` 和 `SecretKey`。
+设置卡片支持配置腾讯云 `SecretId` 和 `SecretKey` 凭证。
 
 - 凭证保存在本机 `~/.tencent-cloudq/credential.json`，文件权限仅允许当前用户访问。
 - 敏感凭证通过标准输入传递给 Python 辅助脚本，不会放入命令行参数。

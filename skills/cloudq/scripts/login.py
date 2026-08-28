@@ -139,7 +139,7 @@ def cmd_status() -> int:
     if cred_data is None:
         print(_json_ok({
             "logged_in": False,
-            "message": "未找到 OAuth 凭证",
+            "message": "未找到凭证",
         }))
         return 0
 

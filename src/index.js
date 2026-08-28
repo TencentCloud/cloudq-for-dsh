@@ -7,9 +7,9 @@
  * and referenced through a directory `resourceBase`, so every `{baseDir}`
  * placeholder in the body resolves against the installed package directory.
  *
- * It also exposes a small credential-management API (status / authorize-url /
- * save-code / logout) that the client half renders in the settings panel, so
- * the CloudQ login flow no longer requires touching a terminal.
+ * It also exposes a small credential-management API (status / AK-SK test &
+ * save / logout) that the client half renders in the settings panel, so the
+ * CloudQ credential flow no longer requires touching a terminal.
  *
  * @module dsh-cloudq
  */
@@ -59,8 +59,17 @@ function renderedSkillContent() {
 // ---------------------------------------------------------------------------
 
 /** Run one helper from the bundled CloudQ skill. */
-function runScript(scriptName, args, options) {
-  return runBundledScript(resolve(skillDirectory(), 'scripts'), scriptName, args, options)
+async function runScript(scriptName, args, options) {
+  try {
+    return await runBundledScript(resolve(skillDirectory(), 'scripts'), scriptName, args, options)
+  } catch (error) {
+    // Surface the missing-credential case with a stable, actionable message
+    // instead of the generic helper failure.
+    if (error instanceof HttpError && error.code === 'NeedAuth') {
+      throw new HttpError(401, 'NeedAuth', '尚未配置 AK/SK，请前往「设置 → 插件 → CloudQ」完成配置。')
+    }
+    throw error
+  }
 }
 
 /** Remove host filesystem details before returning credential state to the browser. */
@@ -74,18 +83,6 @@ function publicCredentialStatus(status) {
 /** Wrap runScript so failures keep a stable envelope for the client. */
 async function credentialStatus() {
   return publicCredentialStatus(await runScript('login.py', ['--status']))
-}
-
-function authorizeUrl() {
-  return runScript('login.py', ['--authorize-url'])
-}
-
-async function saveAuthCode(code) {
-  const status = await runScript('login.py', ['--save', '--stdin'], {
-    stdin: JSON.stringify({ code }),
-    sensitiveValues: [code],
-  })
-  return publicCredentialStatus(status)
 }
 
 function logout() {
@@ -266,40 +263,36 @@ export function apply(ctx) {
   // intersection of Host-served namespaces and cards registered on those
   // keys). The card itself is credential-focused and does not persist a
   // schema, so the schema is an empty object.
-  ctx.effect(
-    () => ctx.settings.register(SETTINGS_NAMESPACE, Config, { base: {} }),
-    'dsh-cloudq: settings namespace',
-  )
+  ctx.effect(() => {
+    ctx.settings.register(SETTINGS_NAMESPACE, Config, { base: {} })
+  }, 'dsh-cloudq: settings namespace')
 
   // Host-side counterpart for the plugin-manager card. The card is
   // action-driven (list / toggle), so the namespace carries no persisted
   // schema either.
-  ctx.effect(
-    () => ctx.settings.register(PLUGIN_MANAGER_NAMESPACE, Config, { base: {} }),
-    'dsh-cloudq: plugin-manager settings namespace',
-  )
+  ctx.effect(() => {
+    ctx.settings.register(PLUGIN_MANAGER_NAMESPACE, Config, { base: {} })
+  }, 'dsh-cloudq: plugin-manager settings namespace')
 
-  ctx.effect(
-    () =>
-      ctx.skills.register({
-        name: 'cloudq',
-        description:
-          '用户咨询腾讯云产品资源、AWS、阿里云等多云资源时，查看智能顾问架构图、架构目录、架构详情、架构评估结果、绘制架构图、开通智能顾问时、AI智能巡检、AI容量监测、AI混沌演练、AI云诊断、主动预警、架构健康度、云运维问答、云资源查询、云成本优化、安全合规、云资源盘点、闲置资源检查、云产品最佳实践等AIOps、ChatOps、CloudOps操作时使用。',
-        whenToUse:
-          '用户要求进入 CloudQ 模式、使用 CloudQ、咨询云上架构/资源/成本/巡检/诊断等多云或腾讯云运维问题，或点击输入栏 CloudQ 按钮时使用；也适用于架构图查看/评估、AI 巡检、容量监测、混沌演练、云诊断等场景。',
-        source: 'bundled',
-        resourceBase: {
-          kind: 'directory',
-          path: skillDirectory(),
-        },
-        content: renderedSkillContent(),
-        invocation: {
-          modelInvocable: true,
-          userInvocable: true,
-        },
-      }),
-    'dsh-cloudq: CloudQ skill',
-  )
+  ctx.effect(() => {
+    ctx.skills.register({
+      name: 'cloudq',
+      description:
+        '用户咨询腾讯云产品资源、AWS、阿里云等多云资源时，查看智能顾问架构图、架构目录、架构详情、架构评估结果、绘制架构图、开通智能顾问时、AI智能巡检、AI容量监测、AI混沌演练、AI云诊断、主动预警、架构健康度、云运维问答、云资源查询、云成本优化、安全合规、云资源盘点、闲置资源检查、云产品最佳实践等AIOps、ChatOps、CloudOps操作时使用。',
+      whenToUse:
+        '用户要求进入 CloudQ 模式、使用 CloudQ、咨询云上架构/资源/成本/巡检/诊断等多云或腾讯云运维问题，或点击输入栏 CloudQ 按钮时使用；也适用于架构图查看/评估、AI 巡检、容量监测、混沌演练、云诊断等场景。',
+      source: 'bundled',
+      resourceBase: {
+        kind: 'directory',
+        path: skillDirectory(),
+      },
+      content: renderedSkillContent(),
+      invocation: {
+        modelInvocable: true,
+        userInvocable: true,
+      },
+    })
+  }, 'dsh-cloudq: CloudQ skill')
 
   ctx.effect(
     () => {
@@ -315,43 +308,6 @@ export function apply(ctx) {
               assertSafeRequest(request, 'GET')
               const status = await credentialStatus()
               sendJson(response, 200, { ok: true, status })
-            } catch (error) {
-              sendError(response, error)
-            }
-          },
-        }),
-      )
-
-      // POST /api/dsh-cloudq/login/url — start OAuth flow, returns authorize URL
-      disposers.push(
-        ctx.webServer.register({
-          kind: 'exact',
-          path: '/api/dsh-cloudq/login/url',
-          handler: async (request, response) => {
-            try {
-              assertSafeRequest(request, 'POST')
-              const result = await authorizeUrl()
-              sendJson(response, 200, { ok: true, authorize_url: result.authorize_url, state: result.state })
-            } catch (error) {
-              sendError(response, error)
-            }
-          },
-        }),
-      )
-
-      // POST /api/dsh-cloudq/login/save — exchange authorization code for credentials
-      disposers.push(
-        ctx.webServer.register({
-          kind: 'exact',
-          path: '/api/dsh-cloudq/login/save',
-          handler: async (request, response) => {
-            try {
-              assertSafeRequest(request, 'POST')
-              const body = await readJsonBody(request)
-              const code = typeof body?.code === 'string' ? body.code.trim() : ''
-              if (!code) throw new HttpError(400, 'missing-code', '缺少授权码。')
-              const result = await saveAuthCode(code)
-              sendJson(response, 200, { ok: true, status: result })
             } catch (error) {
               sendError(response, error)
             }
