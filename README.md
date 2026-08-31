@@ -2,6 +2,12 @@
 
 面向 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 的 CloudQ 集成插件。插件为 Web Profile 提供 CloudQ 模式，内置 `cloudq` Skill，并提供 CloudQ 用量、架构视图、本地凭证配置和插件管理能力。
 
+## 截图
+
+![CloudQ 风险分析对话](assets/screenshots/chat-risk-analysis.png)
+
+![CloudQ 设置与插件管理](assets/screenshots/settings.png)
+
 ## 环境要求
 
 - Node.js `>=22.19.0`
