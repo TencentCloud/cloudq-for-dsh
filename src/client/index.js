@@ -26,6 +26,40 @@ const STYLE_ID = 'dsh-cloudq-styles'
 // Same visual language as the dsh-cos attachment trigger: a square icon
 // button in the composer tool row, using the shared design tokens.
 const CSS = `
+/* DSH signals dark mode through body[data-ds-dark-theme]; the --dsw-alias-*
+   tokens are intentionally only defined there so light mode keeps using the
+   per-usage fallbacks (pixel-identical), while dark mode resolves them here. */
+body[data-ds-dark-theme] {
+  --dsw-alias-bg-card: #212123;
+  --dsw-alias-bg-inverse: #f2f3f5;
+  --dsw-alias-bg-layer-2: #262629;
+  --dsw-alias-bg-layer-3: #212123;
+  --dsw-alias-bg-sub: #1b1b1e;
+  --dsw-alias-border-l1: #2a2a2e;
+  --dsw-alias-border-l2: #343439;
+  --dsw-alias-button-elevated-fill: #2c2c31;
+  --dsw-alias-interactive-bg: rgba(91, 141, 239, .16);
+  --dsw-alias-interactive-bg-hover: #2a2b30;
+  --dsw-alias-interactive-border: #43434a;
+  --dsw-alias-label-inverse: #0f0f0f;
+  --dsw-alias-label-primary: #ecedf0;
+  --dsw-alias-label-secondary: #a4a7ad;
+  --dsw-alias-label-tertiary: #7e838b;
+  --dsw-alias-state-business-primary: #5b8def;
+  --dsw-alias-state-business-primary-bg: rgba(91, 141, 239, .16);
+  --dsw-alias-state-danger: #e5635c;
+  --dsw-alias-state-danger-bg: rgba(213, 73, 65, .18);
+  --dsw-alias-state-success-bg: rgba(34, 197, 94, .16);
+  --dsw-alias-state-success-text: #4ade80;
+  --dsw-alias-state-warning-bg: rgba(245, 158, 11, .16);
+  --dsw-alias-state-warning-text: #f2b04a;
+}
+body[data-ds-dark-theme] .dsh-cloudq-arch__preview {
+  background-color: #1b1b1e;
+  background-image:
+linear-gradient(30deg, transparent 49.5%, #2c2c31 49.5%, #2c2c31 50.5%, transparent 50.5%),
+linear-gradient(-30deg, transparent 49.5%, #2c2c31 49.5%, #2c2c31 50.5%, transparent 50.5%);
+}
 .dsh-cloudq-trigger {
   display: inline-flex;
   height: 30px;
@@ -1888,7 +1922,7 @@ grid-template-columns: repeat(4, minmax(0, 1fr));
   height: 260px;
   overflow: hidden;
   border: 1px solid var(--dsw-alias-border-l2, #e1e4e8);
-  background: #fff;
+  background: var(--dsw-alias-bg-card, #fff);
   color: inherit;
   text-decoration: none;
   transition: border-color .15s ease, box-shadow .15s ease, transform .15s ease;
@@ -1905,7 +1939,7 @@ grid-template-columns: repeat(4, minmax(0, 1fr));
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  background-color: #fff;
+  background-color: var(--dsw-alias-bg-sub, #fff);
   background-image:
 linear-gradient(30deg, transparent 49.5%, #edf0f3 49.5%, #edf0f3 50.5%, transparent 50.5%),
 linear-gradient(-30deg, transparent 49.5%, #edf0f3 49.5%, #edf0f3 50.5%, transparent 50.5%);
