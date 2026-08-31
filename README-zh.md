@@ -41,6 +41,13 @@ dsh plugin --profile web remove dsh-cloudq
 
 修改已安装的插件后，需要重启 Web Profile。
 
+## 使用步骤
+
+1. 打开 **设置 → 插件**，展开 **CloudQ** 卡片。
+2. 填入腾讯云 `SecretId` 和 `SecretKey`（可前往 [访问密钥控制台](https://console.cloud.tencent.com/cam/capi) 获取）。
+3. 点击 **测试连接** 验证密钥，再点击 **保存配置**；卡片显示 **AKSK有效** 即配置成功。
+4. 在对话输入区点击 **进入 CloudQ 模式**（或输入 `/cloudq`），即可开始提问，例如「帮我看看系统有哪些风险」。
+
 ## 凭证配置
 
 设置卡片支持配置腾讯云 `SecretId` 和 `SecretKey` 凭证。

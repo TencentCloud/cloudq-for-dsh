@@ -41,6 +41,13 @@ dsh plugin --profile web remove dsh-cloudq
 
 Restart the Web profile after changing the installed package set.
 
+## Usage
+
+1. Open **Settings → Plugins** and expand the **CloudQ** card.
+2. Enter your Tencent Cloud `SecretId` and `SecretKey` (available from the [CAM console](https://console.cloud.tencent.com/cam/capi)).
+3. Click **测试连接** to validate the pair, then **保存配置**. The card shows **AKSK有效** once the credential is active.
+4. Click **进入 CloudQ 模式** in the conversation input area — or type `/cloudq` — and start asking cloud operations questions, e.g. “帮我看看系统有哪些风险”.
+
 ## Credentials
 
 The settings card accepts a Tencent Cloud `SecretId`/`SecretKey` pair.
