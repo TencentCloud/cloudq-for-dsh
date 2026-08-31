@@ -63,10 +63,19 @@ async function runScript(scriptName, args, options) {
   try {
     return await runBundledScript(resolve(skillDirectory(), 'scripts'), scriptName, args, options)
   } catch (error) {
-    // Surface the missing-credential case with a stable, actionable message
-    // instead of the generic helper failure.
-    if (error instanceof HttpError && error.code === 'NeedAuth') {
-      throw new HttpError(401, 'NeedAuth', '尚未配置 AK/SK，请前往「设置 → 插件 → CloudQ」完成配置。')
+    // Surface credential problems with stable, actionable messages instead of
+    // the generic helper failure. This includes machines where a global
+    // TENCENTCLOUD_SECRET_ID/KEY pair exists but is invalid (AuthFailure.*).
+    if (error instanceof HttpError) {
+      if (error.code === 'NeedAuth') {
+        throw new HttpError(401, 'NeedAuth', '尚未配置 AK/SK，请前往「设置 → 插件 → CloudQ」完成配置。')
+      }
+      if (error.code === 'CredentialExpired') {
+        throw new HttpError(401, 'CredentialExpired', '凭证已过期，请前往「设置 → 插件 → CloudQ」重新配置。')
+      }
+      if (typeof error.code === 'string' && error.code.startsWith('AuthFailure')) {
+        throw new HttpError(401, 'AuthFailure', 'AK/SK 无效或权限不足，请前往「设置 → 插件 → CloudQ」检查配置。')
+      }
     }
     throw error
   }

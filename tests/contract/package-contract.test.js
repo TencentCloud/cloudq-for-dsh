@@ -9,7 +9,7 @@ const manifest = JSON.parse(read('package.json'))
 describe('npm and DSH package contract', () => {
   it('declares the public package, repository, runtime files, and official registry', () => {
     expect(manifest.name).toBe('dsh-cloudq')
-    expect(manifest.version).toBe('0.1.3')
+    expect(manifest.version).toBe('0.1.4')
     expect(manifest.repository.url).toBe('git+https://github.com/TencentCloud/cloudq-for-dsh.git')
     expect(manifest.homepage).toBe('https://github.com/TencentCloud/cloudq-for-dsh#readme')
     expect(manifest.bugs.url).toBe('https://github.com/TencentCloud/cloudq-for-dsh/issues')

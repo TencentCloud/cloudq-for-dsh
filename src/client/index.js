@@ -2291,7 +2291,8 @@ function renderUsageView() {
     hint.textContent = '正在加载用量…'
     tableWrap.appendChild(hint)
 
-    cloudqRequest(`${API_USAGE}?start=${encodeURIComponent(range.start)}&end=${encodeURIComponent(range.end)}`)
+    requireCloudqCredential()
+      .then(() => cloudqRequest(`${API_USAGE}?start=${encodeURIComponent(range.start)}&end=${encodeURIComponent(range.end)}`))
       .then((data) => {
         if (panelView !== 'usage' || !panelExpanded) return
         value.textContent = formatCredits(data.overview?.TotalCredits)
@@ -2444,7 +2445,8 @@ function renderInspirationView() {
   hint.className = 'dsh-cloudq-panel__hint'
   hint.textContent = '正在加载灵感…'
   list.appendChild(hint)
-  cloudqRequest(API_INSPIRATIONS)
+  requireCloudqCredential()
+    .then(() => cloudqRequest(API_INSPIRATIONS))
     .then((data) => {
       inspirationCache = Array.isArray(data.inspirations) ? data.inspirations : []
       paint(inspirationCache)
@@ -2601,7 +2603,8 @@ function renderArtifactView({ force = false } = {}) {
   hint.className = 'dsh-cloudq-panel__hint'
   hint.textContent = '正在加载制品…'
   panelBody.appendChild(hint)
-  cloudqRequest(API_ARTIFACTS)
+  requireCloudqCredential()
+    .then(() => cloudqRequest(API_ARTIFACTS))
     .then((data) => {
       artifactCache = Array.isArray(data?.sessions) ? data.sessions : []
       artifactTotal = Number(data?.total) || artifactCache.length
@@ -2940,7 +2943,8 @@ function renderArchitectureView() {
     paintDirectories(architectureDirectoriesCache, architectureFirstFolderId)
     return
   }
-  cloudqRequest(API_ARCH_DIRECTORIES)
+  requireCloudqCredential()
+    .then(() => cloudqRequest(API_ARCH_DIRECTORIES))
     .then((data) => {
       architectureDirectoriesCache = Array.isArray(data?.folders) ? data.folders : []
       architectureFirstFolderId = Number(data?.firstFolderId) || null
@@ -3308,15 +3312,37 @@ class CloudQApiError extends Error {
   }
 }
 
+const CLOUDQ_AUTH_ERROR_CODES = new Set(['NeedAuth', 'CredentialExpired', 'AuthFailure'])
+
 /**
- * Panel-facing error text. A missing credential gets an actionable pointer to
- * the settings card instead of a raw load failure message.
+ * Panel-facing error text. Credential problems carry an actionable Host
+ * message and are shown directly instead of a raw load failure prefix.
  */
 function cloudqPanelErrorText(error, prefix) {
-  if (error instanceof CloudQApiError && error.code === 'NeedAuth') {
-    return '尚未配置 AK/SK，请前往「设置 → 插件 → CloudQ」完成配置后重试。'
+  if (error instanceof CloudQApiError && CLOUDQ_AUTH_ERROR_CODES.has(error.code)) {
+    return error.message
   }
   return `${prefix}：${error instanceof Error ? error.message : '未知错误'}`
+}
+
+/**
+ * Reject with an actionable NeedAuth error when no credential is configured,
+ * so data views show the settings guide without calling the CloudQ APIs.
+ * Returns undefined when the status check itself fails, letting the data
+ * request surface its own error.
+ */
+function requireCloudqCredential() {
+  return cloudqRequest(API_CREDENTIAL)
+    .then((response) => {
+      if (response.status?.logged_in !== true) {
+        throw new CloudQApiError('尚未配置 AK/SK，请前往「设置 → 插件 → CloudQ」完成配置后重试。', 'NeedAuth')
+      }
+      return undefined
+    })
+    .catch((error) => {
+      if (error instanceof CloudQApiError && error.code === 'NeedAuth') throw error
+      return undefined
+    })
 }
 
 async function cloudqRequest(url, init, timeoutMs = 20000) {
