@@ -90,6 +90,11 @@ cordis.patch.yml             DSH Bundle 配置层
 
 源码在 [TencentCloud/cloudq-for-dsh](https://github.com/TencentCloud/cloudq-for-dsh) 完成评审和版本管理。只有仓库检查与安装包冒烟测试全部通过后，才可将 npm 版本发布到官方 Registry。
 
+## 更多文档
+
+- 更新日志：[`CHANGELOG.md`](CHANGELOG.md)
+- 开发与维护指南：[`DEVELOPMENT.md`](DEVELOPMENT.md)
+
 ## 许可证
 
 本项目采用 MIT 许可证，详情请参阅 [`LICENSE`](LICENSE)。

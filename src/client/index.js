@@ -428,10 +428,6 @@ const CSS = `
   font-size: 11px;
   font-weight: 500;
 }
-.dsh-cloudq-pm__row-tag--self {
-  background: var(--dsw-alias-state-business-primary, #315efb);
-  color: #fff;
-}
 .dsh-cloudq-pm__row-tag--off {
   background: var(--dsw-alias-state-danger, #d54941);
   color: #fff;
@@ -3873,9 +3869,6 @@ function PluginManagerCard() {
                                             className: 'dsh-cloudq-pm__row-name',
                                             children: [
                                               plugin.name,
-                                              plugin.self
-                                                ? react_jsx_runtime.jsx('span', { className: 'dsh-cloudq-pm__row-tag dsh-cloudq-pm__row-tag--self', children: '本插件' })
-                                                : null,
                                               !on
                                                 ? react_jsx_runtime.jsx('span', { className: 'dsh-cloudq-pm__row-tag dsh-cloudq-pm__row-tag--off', children: '已停用' })
                                                 : null,
