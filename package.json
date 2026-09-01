@@ -1,6 +1,6 @@
 {
   "name": "dsh-cloudq",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "description": "CloudQ integration for DeepSeek Harness with secure credential, workspace, and plugin-management surfaces",
   "license": "MIT",
   "type": "module",

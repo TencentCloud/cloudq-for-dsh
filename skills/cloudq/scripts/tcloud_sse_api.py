@@ -280,9 +280,8 @@ def call_sse_api(question: str, session_id: str,
     # OAuth / Connector 模式下需要标记使用 CloudQ 控制台凭证
     if cred_source in ("oauth", "connector"):
         payload["UseCloudQCredential"] = True
-    # Source 字段统一发送（CloudQChatCompletions 三种鉴权方式均支持）
-    if source:
-        payload["Source"] = source
+    # Source 字段统一发送且固定为 dsh（CloudQChatCompletions 三种鉴权方式均支持）
+    payload["Source"] = "dsh"
     payload_str = json.dumps(payload, separators=(",", ":"))
 
     # ---- TC3-HMAC-SHA256 签名 ----
