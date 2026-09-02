@@ -404,6 +404,46 @@ linear-gradient(-30deg, transparent 49.5%, #2c2c31 49.5%, #2c2c31 50.5%, transpa
   overflow: hidden;
   text-overflow: ellipsis;
 }
+/* Outdated-plugin badge appended after the sidebar button label. */
+.dsh-cloudq-version-badge {
+  position: relative;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  margin-left: 6px;
+  border-radius: 50%;
+  background: var(--dsw-alias-state-warning, #d18400);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 16px;
+  cursor: pointer;
+}
+.dsh-cloudq-version-badge.is-busy {
+  opacity: .7;
+  cursor: default;
+}
+.dsh-cloudq-version-badge__tip {
+  display: none;
+  position: fixed;
+  z-index: 1000;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: rgba(20, 24, 31, .92);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 18px;
+  white-space: nowrap;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, .18);
+}
+.dsh-cloudq-version-badge:hover .dsh-cloudq-version-badge__tip,
+.dsh-cloudq-version-badge:focus .dsh-cloudq-version-badge__tip {
+  display: block;
+}
 /* Persisted CloudQ marker shown on rows whose session id is in the registry. */
 .dsh-cloudq-session-badge {
   flex: none;
@@ -876,6 +916,89 @@ function installSidebarButton() {
     if (observer) observer.disconnect()
     if (button) button.remove()
   }
+}
+
+// ------------------------------------------------------------------
+// Version check & one-click self update
+// ------------------------------------------------------------------
+
+const API_VERSION = '/api/dsh-cloudq/version'
+const API_UPDATE = '/api/dsh-cloudq/update'
+const API_RESTART = '/api/dsh-cloudq/restart'
+
+// Set when the registry reports a strictly newer version; drives the badge.
+let cloudqOutdatedInfo = null
+let cloudqSelfUpdateRunning = false
+
+function positionVersionTip(badge, tip) {
+  const rect = badge.getBoundingClientRect()
+  tip.style.left = `${Math.max(8, rect.left)}px`
+  tip.style.top = `${rect.bottom + 6}px`
+  tip.style.bottom = 'auto'
+}
+
+/** Append the "!" badge after the sidebar button label (retries while the
+ *  button is not mounted yet). The button node is reused across sidebar
+ *  re-mounts, so a child badge survives them. */
+function attachVersionBadge(attempt = 0) {
+  if (!cloudqOutdatedInfo) return
+  const button = document.getElementById('dsh-cloudq-sidebar-entry')
+  if (!button) {
+    if (attempt < 20) window.setTimeout(() => attachVersionBadge(attempt + 1), 500)
+    return
+  }
+  if (button.querySelector('.dsh-cloudq-version-badge')) return
+  const badge = document.createElement('span')
+  badge.className = 'dsh-cloudq-version-badge'
+  badge.dataset.testid = 'cloudq-version-badge'
+  badge.textContent = '!'
+  badge.setAttribute('role', 'button')
+  badge.setAttribute('aria-label', `CloudQ 插件有新版本 ${cloudqOutdatedInfo.latest}，点击更新`)
+  const tip = document.createElement('span')
+  tip.className = 'dsh-cloudq-version-badge__tip'
+  tip.textContent = `当前版本 ${cloudqOutdatedInfo.current} 不是最新版本 ${cloudqOutdatedInfo.latest}，点击自动更新`
+  badge.appendChild(tip)
+  badge.addEventListener('mouseenter', () => positionVersionTip(badge, tip))
+  badge.addEventListener('click', (event) => {
+    event.preventDefault()
+    event.stopPropagation()
+    void runCloudqSelfUpdate(badge, tip)
+  })
+  button.appendChild(badge)
+}
+
+/** Badge click flow: update → restart host → wait for it → reload page. */
+async function runCloudqSelfUpdate(badge, tip) {
+  if (cloudqSelfUpdateRunning) return
+  cloudqSelfUpdateRunning = true
+  badge.classList.add('is-busy')
+  tip.textContent = '正在更新到最新版本…'
+  try {
+    await cloudqRequest(API_UPDATE, { method: 'POST' }, 150000)
+  } catch (error) {
+    tip.textContent = `更新失败：${error.message}`
+    badge.classList.remove('is-busy')
+    cloudqSelfUpdateRunning = false
+    return
+  }
+  tip.textContent = '更新完成，正在重启 DSH 服务…'
+  try {
+    await cloudqRequest(API_RESTART, { method: 'POST' }, 5000)
+  } catch {
+    // The host exits right after answering; a dropped connection is expected.
+  }
+  const sleep = (ms) => new Promise((resolvePromise) => window.setTimeout(resolvePromise, ms))
+  const deadline = Date.now() + 60000
+  while (Date.now() < deadline) {
+    try {
+      await cloudqRequest(API_VERSION, undefined, 3000)
+      window.location.reload()
+      return
+    } catch {
+      await sleep(1000)
+    }
+  }
+  tip.textContent = '服务重启超时，请手动重启 DSH 后刷新页面。'
 }
 
 /** Build the exact visible row order from Host workspace membership. */
@@ -3587,9 +3710,11 @@ function CloudQSettingsCard() {
       setFeedback({ kind: 'success', text: successText })
     } catch (error) {
       setValidated(false)
+      // script-launch-failed 是宿主缺 Python 环境，与密钥有效性无关。
       const invalid = error instanceof CloudQApiError
         && error.code !== 'network-error'
         && error.code !== 'invalid-response'
+        && error.code !== 'script-launch-failed'
       setFeedback({
         kind: 'error',
         text: invalid ? 'AKSK 无效，请检查后重新配置。' : error.message,
@@ -4132,6 +4257,23 @@ function apply(ctx) {
       }
     })
   }, 'dsh-cloudq: refresh artifacts on turn completion')
+
+  ctx.effect(() => {
+    // One version check per page load. The registry answer is cached
+    // host-side for ten minutes, so this costs a localhost round-trip in the
+    // common case; failures stay silent (no badge, no error).
+    let disposed = false
+    cloudqRequest(API_VERSION)
+      .then((data) => {
+        if (disposed || data?.outdated !== true || typeof data?.latest !== 'string') return
+        cloudqOutdatedInfo = { current: String(data.current ?? ''), latest: data.latest }
+        attachVersionBadge()
+      })
+      .catch(() => {})
+    return () => {
+      disposed = true
+    }
+  }, 'dsh-cloudq: version check')
 
   ctx.effect(() => {
     // Mark the session the moment a `/cloudq` claim is submitted: intercept

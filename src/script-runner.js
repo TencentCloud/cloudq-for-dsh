@@ -1,8 +1,27 @@
-import { spawn } from 'node:child_process'
+import { spawn, spawnSync } from 'node:child_process'
 import { resolve } from 'node:path'
 import { HttpError } from './http.js'
 
 const MAX_SCRIPT_OUTPUT_BYTES = 1024 * 1024
+
+// Windows 的 Python 只有 python/py，没有 python3；按优先级探测一次并缓存。
+let resolvedPythonCommand = null
+function pythonCommand() {
+  if (resolvedPythonCommand) return resolvedPythonCommand
+  for (const candidate of ['python3', 'python', 'py']) {
+    try {
+      const probe = spawnSync(candidate, ['--version'], { stdio: 'ignore', timeout: 5000 })
+      if (probe.status === 0) {
+        resolvedPythonCommand = candidate
+        return candidate
+      }
+    } catch {
+      // 命令不存在，尝试下一个
+    }
+  }
+  // 都不可用时仍返回 python3，由 spawn 的 error 事件给出统一报错
+  return 'python3'
+}
 
 function safeCode(value) {
   return typeof value === 'string' && /^[a-zA-Z0-9._-]{1,80}$/.test(value)
@@ -40,7 +59,7 @@ export function runScript(
 ) {
   return new Promise((resolveRun, rejectRun) => {
     const script = resolve(scriptsDirectory, scriptName)
-    const child = spawnProcess('python3', [script, ...args], {
+    const child = spawnProcess(pythonCommand(), [script, ...args], {
       stdio: [stdin === undefined ? 'ignore' : 'pipe', 'pipe', 'pipe'],
       timeout: timeoutMs,
     })
@@ -77,7 +96,7 @@ export function runScript(
       stderr = collect(stderr, chunk)
     })
     child.on('error', () => {
-      rejectOnce(new HttpError(502, 'script-launch-failed', 'The CloudQ helper could not be started.'))
+      rejectOnce(new HttpError(502, 'script-launch-failed', '无法启动 Python 运行环境，请先安装 Python 3 后重试。'))
     })
     child.on('close', (code) => {
       if (settled) return

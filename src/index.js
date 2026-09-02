@@ -14,7 +14,9 @@
  * @module dsh-cloudq
  */
 
+import { spawn } from 'node:child_process'
 import { readFileSync } from 'node:fs'
+import { get as httpsGet } from 'node:https'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import Schema from '@deepseek-ai/schemastery'
@@ -36,6 +38,135 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 /** Installed skill directory (SKILL.md + scripts/ + references/). */
 function skillDirectory() {
   return resolve(__dirname, '../skills/cloudq')
+}
+
+// ---------------------------------------------------------------------------
+// Self version check & update
+// ---------------------------------------------------------------------------
+
+/** This plugin's own version, read from the installed package manifest. */
+const PACKAGE_VERSION = (() => {
+  try {
+    return JSON.parse(readFileSync(resolve(__dirname, '../package.json'), 'utf8'))?.version ?? '0.0.0'
+  } catch {
+    return '0.0.0'
+  }
+})()
+
+/**
+ * Profile directory holding this plugin (`<profile>/node_modules/dsh-cloudq`).
+ * Both src/ (dev) and lib/ (packed) sit one level under the package root.
+ */
+function profileDirectory() {
+  return resolve(__dirname, '../../..')
+}
+
+/** Fetch the latest published version from the npm registry (best effort). */
+function fetchLatestPackageVersion() {
+  return new Promise((resolvePromise) => {
+    const request = httpsGet('https://registry.npmjs.org/dsh-cloudq/latest', { timeout: 8000 }, (res) => {
+      if (res.statusCode !== 200) {
+        res.resume()
+        resolvePromise(null)
+        return
+      }
+      let body = ''
+      res.on('data', (chunk) => {
+        body += chunk
+        if (body.length > 64 * 1024) request.destroy()
+      })
+      res.on('end', () => {
+        try {
+          resolvePromise(JSON.parse(body)?.version ?? null)
+        } catch {
+          resolvePromise(null)
+        }
+      })
+    })
+    request.on('error', () => resolvePromise(null))
+    request.on('timeout', () => {
+      request.destroy()
+      resolvePromise(null)
+    })
+  })
+}
+
+// Registry answers are cached for ten minutes so every page load costs at
+// most a local read; the TTL only trades a few minutes of badge staleness.
+let latestVersionCache = { at: 0, version: null }
+async function latestPackageVersion() {
+  if (latestVersionCache.version && Date.now() - latestVersionCache.at < 10 * 60 * 1000) {
+    return latestVersionCache.version
+  }
+  const version = await fetchLatestPackageVersion()
+  if (version) latestVersionCache = { at: Date.now(), version }
+  return version
+}
+
+/** Semver-ish compare: is `latest` strictly newer than `current`? */
+function isNewerVersion(latest, current) {
+  const parse = (value) => String(value).split('.').map((part) => parseInt(part, 10) || 0)
+  const next = parse(latest)
+  const now = parse(current)
+  for (let index = 0; index < 3; index += 1) {
+    if (next[index] !== now[index]) return next[index] > now[index]
+  }
+  return false
+}
+
+const UPDATE_TIMEOUT_MS = 120_000
+
+/** Install the latest published plugin version into the active profile. */
+function runProfileUpdate() {
+  return new Promise((resolveRun, rejectRun) => {
+    const child = spawn('pnpm', ['add', 'dsh-cloudq@latest', '--registry=https://registry.npmjs.org/'], {
+      cwd: profileDirectory(),
+    })
+    let output = ''
+    const collect = (chunk) => {
+      output += chunk
+      if (output.length > 64 * 1024) child.kill()
+    }
+    child.stdout.on('data', collect)
+    child.stderr.on('data', collect)
+    const timer = setTimeout(() => {
+      child.kill()
+      rejectRun(new HttpError(504, 'update-timeout', '更新超时，请检查网络后重试。'))
+    }, UPDATE_TIMEOUT_MS)
+    child.on('error', () => {
+      clearTimeout(timer)
+      rejectRun(new HttpError(502, 'update-failed', '无法启动 pnpm，请在终端手动执行：dsh plugin --profile web add dsh-cloudq'))
+    })
+    child.on('close', (code) => {
+      clearTimeout(timer)
+      if (code === 0) {
+        resolveRun()
+      } else {
+        rejectRun(new HttpError(502, 'update-failed', `更新失败：${output.trim().slice(-200) || 'pnpm 执行异常'}`))
+      }
+    })
+  })
+}
+
+/**
+ * Restart the DSH host after an update. A detached watcher respawns the same
+ * command line the moment this process exits; there is no supervisor, so the
+ * plugin exits itself once the watcher is armed.
+ */
+function scheduleSelfRestart() {
+  if (process.platform === 'win32') {
+    throw new HttpError(501, 'restart-unsupported', '当前系统不支持自动重启，请手动重启 DSH 服务。')
+  }
+  const quote = (value) => `'${String(value).replaceAll("'", "'\\''")}'`
+  const pid = process.pid
+  const command = [
+    `while kill -0 ${pid} 2>/dev/null; do sleep 0.5; done`,
+    'sleep 1',
+    `cd ${quote(process.cwd())} && nohup ${quote(process.argv[0])} ${process.argv.slice(1).map(quote).join(' ')} >> /tmp/dsh-cloudq-restart.log 2>&1 &`,
+  ].join('; ')
+  const watcher = spawn('/bin/sh', ['-c', command], { detached: true, stdio: 'ignore' })
+  watcher.unref()
+  setTimeout(() => process.exit(0), 300).unref()
 }
 
 /** Raw SKILL.md body. */
@@ -336,6 +467,64 @@ export function apply(ctx) {
               assertSafeRequest(request, 'POST')
               const result = await logout()
               sendJson(response, 200, { ok: true, status: result })
+            } catch (error) {
+              sendError(response, error)
+            }
+          },
+        }),
+      )
+
+      // GET /api/dsh-cloudq/version — installed vs latest npm version.
+      disposers.push(
+        ctx.webServer.register({
+          kind: 'exact',
+          path: '/api/dsh-cloudq/version',
+          handler: async (request, response) => {
+            try {
+              assertSafeRequest(request, 'GET')
+              const latest = await latestPackageVersion()
+              sendJson(response, 200, {
+                ok: true,
+                current: PACKAGE_VERSION,
+                latest,
+                outdated: latest !== null && isNewerVersion(latest, PACKAGE_VERSION),
+              })
+            } catch (error) {
+              sendError(response, error)
+            }
+          },
+        }),
+      )
+
+      // POST /api/dsh-cloudq/update — install dsh-cloudq@latest into the
+      // active profile. Only runs from the client badge click.
+      disposers.push(
+        ctx.webServer.register({
+          kind: 'exact',
+          path: '/api/dsh-cloudq/update',
+          handler: async (request, response) => {
+            try {
+              assertSafeRequest(request, 'POST')
+              await runProfileUpdate()
+              sendJson(response, 200, { ok: true })
+            } catch (error) {
+              sendError(response, error)
+            }
+          },
+        }),
+      )
+
+      // POST /api/dsh-cloudq/restart — respawn the DSH host so the updated
+      // plugin (host + client halves) actually takes effect.
+      disposers.push(
+        ctx.webServer.register({
+          kind: 'exact',
+          path: '/api/dsh-cloudq/restart',
+          handler: async (request, response) => {
+            try {
+              assertSafeRequest(request, 'POST')
+              sendJson(response, 200, { ok: true, restarting: true })
+              scheduleSelfRestart()
             } catch (error) {
               sendError(response, error)
             }
