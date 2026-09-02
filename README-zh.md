@@ -15,8 +15,8 @@
 - Node.js `>=22.19.0`
 - DeepSeek Harness `0.1.1-rc.2` 或兼容的更高 `0.1.x` 版本
 - `dsh plugin` 命令可调用 `pnpm`
-- 可通过 `python3` 命令运行 Python 3
-- macOS 或 Linux
+- macOS、Linux 或 Windows
+- 可选：CloudQ 对话模式由内置 Skill 驱动，需可通过 `python3` 命令运行 Python 3；设置、用量、灵感、制品、架构图等面板功能不依赖 Python
 
 ## 安装
 
@@ -53,7 +53,7 @@ dsh plugin --profile web remove dsh-cloudq
 设置卡片支持配置腾讯云 `SecretId` 和 `SecretKey` 凭证。
 
 - 凭证保存在本机 `~/.tencent-cloudq/credential.json`，文件权限仅允许当前用户访问。
-- 敏感凭证通过标准输入传递给 Python 辅助脚本，不会放入命令行参数。
+- 面板接口在 Host 进程内完成签名与调用（Node 原生实现），凭证不经过任何子进程，不会出现在进程列表中。
 - 浏览器接口仅返回凭证状态和脱敏标识，不返回凭证内容或本地凭证路径。
 - 可通过退出登录操作删除本地凭证。
 
@@ -63,7 +63,7 @@ dsh plugin --profile web remove dsh-cloudq
 
 - Host API 只接受来自回环地址的同源请求。
 - JSON 请求体大小限制为 64 KiB。
-- Python 辅助脚本的输出大小受到限制，非预期的内部错误不会返回到浏览器。
+- 非预期的内部错误不会返回到浏览器。
 - 远程数据通过 DOM 文本节点渲染，不使用 HTML 注入。
 - 下载链接必须使用 HTTPS。
 - npm 包不包含凭证、Token 或本地环境文件。

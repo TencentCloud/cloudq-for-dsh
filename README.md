@@ -15,8 +15,8 @@ CloudQ integration for [DeepSeek Harness](https://github.com/deepseek-ai/deepsee
 - Node.js `>=22.19.0`
 - DeepSeek Harness `0.1.1-rc.2` or a compatible newer `0.1.x` release
 - `pnpm` available to the `dsh plugin` command
-- Python 3 available as `python3`
-- macOS or Linux
+- macOS, Linux, or Windows
+- Optional: the CloudQ conversation mode is driven by the bundled skill and needs Python 3 available as `python3`; the settings, usage, inspiration, artifact, and architecture panels do not require Python
 
 ## Install
 
@@ -53,7 +53,7 @@ Restart the Web profile after changing the installed package set.
 The settings card accepts a Tencent Cloud `SecretId`/`SecretKey` pair.
 
 - Credentials are stored locally at `~/.tencent-cloudq/credential.json` with owner-only permissions.
-- Secret values are sent to Python helpers through standard input, never command-line arguments.
+- Panel APIs sign and call Tencent Cloud in-process (native Node implementation); secrets never pass through any subprocess or appear in process lists.
 - Browser APIs return only credential state and masked identifiers; local credential paths and secret values are not returned.
 - Use the logout action to remove the stored credential.
 
@@ -63,7 +63,7 @@ Follow least-privilege: grant only the permissions required for the CloudQ opera
 
 - Host APIs accept only loopback, same-origin requests.
 - JSON request bodies are limited to 64 KiB.
-- Python helper output is bounded, and unexpected internal errors are not returned to the browser.
+- Unexpected internal errors are not returned to the browser.
 - Remote values are inserted with DOM text nodes rather than HTML injection.
 - Download links require HTTPS.
 - No credentials, tokens, or local environment files are included in the npm package.
