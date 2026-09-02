@@ -28,7 +28,13 @@ import {
   sendJson,
 } from './http.js'
 import { listPlugins, setPluginDisabled } from './plugin-manager.js'
-import { runScript as runBundledScript } from './script-runner.js'
+import {
+  callTcloudApi,
+  credentialStatus as readCredentialStatus,
+  deleteCredential,
+  maskSecretId,
+  saveCredential,
+} from './tcloud.js'
 
 const LOGO_PATH = resolve(dirname(fileURLToPath(import.meta.url)), '../assets/cloudq.png')
 const LOGO_BUFFER = readFileSync(LOGO_PATH)
@@ -186,110 +192,105 @@ function renderedSkillContent() {
 }
 
 // ---------------------------------------------------------------------------
-// CloudQ credential CLI bridge
+// CloudQ API bridge — pure Node (same approach as dsh-cos: the host process
+// IS Node, so no external runtime is ever required). The advisor APIs have
+// no lightweight standalone SDK, so TC3 signing is implemented in tcloud.js.
 // ---------------------------------------------------------------------------
 
-/** Run one helper from the bundled CloudQ skill. */
-async function runScript(scriptName, args, options) {
-  try {
-    return await runBundledScript(resolve(skillDirectory(), 'scripts'), scriptName, args, options)
-  } catch (error) {
-    // Surface credential problems with stable, actionable messages instead of
-    // the generic helper failure. This includes machines where a global
-    // TENCENTCLOUD_SECRET_ID/KEY pair exists but is invalid (AuthFailure.*).
-    if (error instanceof HttpError) {
-      if (error.code === 'NeedAuth') {
-        throw new HttpError(401, 'NeedAuth', '尚未配置 AK/SK，请前往「设置 → 插件 → CloudQ」完成配置。')
-      }
-      if (error.code === 'CredentialExpired') {
-        throw new HttpError(401, 'CredentialExpired', '凭证已过期，请前往「设置 → 插件 → CloudQ」重新配置。')
-      }
-      if (typeof error.code === 'string' && error.code.startsWith('AuthFailure')) {
-        throw new HttpError(401, 'AuthFailure', 'AK/SK 无效或权限不足，请前往「设置 → 插件 → CloudQ」检查配置。')
-      }
+/** Map upstream TC error codes to stable, actionable client-facing errors. */
+function normalizeApiError(error) {
+  if (error instanceof HttpError) {
+    if (error.code === 'NeedAuth') throw error
+    if (typeof error.code === 'string' && error.code.startsWith('AuthFailure')) {
+      throw new HttpError(401, 'AuthFailure', 'AK/SK 无效或权限不足，请前往「设置 → 插件 → CloudQ」检查配置。')
     }
+  }
+  throw error
+}
+
+/** Wrap one API call with the credential-error mapping. */
+async function callCloudq(spec) {
+  try {
+    return { data: await callTcloudApi(spec) }
+  } catch (error) {
+    normalizeApiError(error)
     throw error
   }
 }
 
-/** Remove host filesystem details before returning credential state to the browser. */
-function publicCredentialStatus(status) {
-  if (!status || typeof status !== 'object' || Array.isArray(status)) return status
-  const safeStatus = { ...status }
-  delete safeStatus.credential_file
-  return safeStatus
-}
-
-/** Wrap runScript so failures keep a stable envelope for the client. */
-async function credentialStatus() {
-  return publicCredentialStatus(await runScript('login.py', ['--status']))
+/** Credential state for the settings UI (never exposes the SecretKey). */
+function credentialStatus() {
+  return readCredentialStatus()
 }
 
 function logout() {
-  return runScript('logout.py', [], { jsonOnly: false })
+  deleteCredential()
+  return { message: '已退出登录。' }
 }
 
 /**
  * Validate a long-lived Tencent Cloud AK/SK pair without persisting it.
- * The script performs one read-only CloudQ call to prove the key works.
+ * DescribeCloudQUsageOverview is read-only, parameterless, and CloudQ's own
+ * API — a successful call proves both the key and the CloudQ enrollment.
  */
-function testAccessKey(secretId, secretKey) {
-  return runScript('save_ak.py', ['--test', '--stdin'], {
-    stdin: JSON.stringify({ secretId, secretKey }),
-    sensitiveValues: [secretId, secretKey],
-  })
+async function testAccessKey(secretId, secretKey) {
+  try {
+    await callTcloudApi(
+      { service: 'advisor', host: 'advisor.tencentcloudapi.com', action: 'DescribeCloudQUsageOverview', version: '2020-07-21' },
+      { secretId, secretKey, token: '' },
+    )
+    return { valid: true, secret_id_masked: maskSecretId(secretId) }
+  } catch (error) {
+    normalizeApiError(error)
+    throw error
+  }
 }
 
 /** Validate then persist a long-lived AK/SK pair as `type:"ak"`. */
 async function saveAccessKey(secretId, secretKey) {
-  const status = await runScript('save_ak.py', ['--save', '--stdin'], {
-    stdin: JSON.stringify({ secretId, secretKey }),
-    sensitiveValues: [secretId, secretKey],
-  })
-  return publicCredentialStatus(status)
+  await testAccessKey(secretId, secretKey)
+  saveCredential(secretId, secretKey)
+  return readCredentialStatus()
 }
 
-// CloudQ usage / inspiration data, proxied through the bundled TC3 client.
-// `payload` must NOT include `Version` — it travels in the TC3 header.
+// CloudQ usage / inspiration data. `payload` must NOT include `Version` —
+// it travels in the TC3 header.
 function cloudqUsageOverview() {
-  return runScript('tcloud_api.py', [
-    'advisor', 'advisor.tencentcloudapi.com', 'DescribeCloudQUsageOverview', '2020-07-21', '{}',
-  ])
+  return callCloudq({ service: 'advisor', host: 'advisor.tencentcloudapi.com', action: 'DescribeCloudQUsageOverview', version: '2020-07-21' })
 }
 
 function cloudqUsageDetail({ startTime, endTime, limit = 20, offset = 0 }) {
-  return runScript('tcloud_api.py', [
-    'advisor', 'advisor.tencentcloudapi.com', 'DescribeCloudQUsageDetail', '2020-07-21',
-    JSON.stringify({ StartTime: startTime, EndTime: endTime, Limit: limit, Offset: offset }),
-  ])
+  return callCloudq({
+    service: 'advisor', host: 'advisor.tencentcloudapi.com', action: 'DescribeCloudQUsageDetail', version: '2020-07-21',
+    payload: { StartTime: startTime, EndTime: endTime, Limit: limit, Offset: offset },
+  })
 }
 
 function cloudqInspirationList() {
-  return runScript('tcloud_api.py', [
-    'advisor', 'advisor.tencentcloudapi.com', 'DescribeCloudQInspirationList', '2020-07-21', '{"Category":0}',
-  ])
+  return callCloudq({
+    service: 'advisor', host: 'advisor.tencentcloudapi.com', action: 'DescribeCloudQInspirationList', version: '2020-07-21',
+    payload: { Category: 0 },
+  })
 }
 
 /** Fetch all CloudQ artifact sessions and their archived files. */
 function cloudqArtifactLibrary() {
-  return runScript('tcloud_api.py', [
-    'advisor', 'advisor.tencentcloudapi.com', 'DescribeCloudQArtifactLibrary', '2020-07-21', '{}',
-  ])
+  return callCloudq({ service: 'advisor', host: 'advisor.tencentcloudapi.com', action: 'DescribeCloudQArtifactLibrary', version: '2020-07-21' })
 }
 
 /** Fetch the architecture directory tree available to the current account. */
 function cloudqArchitectureDirectories() {
-  return runScript('tcloud_api.py', [
-    'advisor', 'advisor.tencentcloudapi.com', 'ListDirectoryV2', '2020-07-21',
-    JSON.stringify({ Tags: [], TagKeys: [] }),
-  ])
+  return callCloudq({
+    service: 'advisor', host: 'advisor.tencentcloudapi.com', action: 'ListDirectoryV2', version: '2020-07-21',
+    payload: { Tags: [], TagKeys: [] },
+  })
 }
 
 /** Fetch one page of diagrams in a CloudQ architecture directory. */
 function cloudqArchitectureList({ folderId, pageNumber = 1, pageSize = 30 }) {
-  return runScript('tcloud_api.py', [
-    'advisor', 'advisor.tencentcloudapi.com', 'DescribeArchList', '2020-07-21',
-    JSON.stringify({
+  return callCloudq({
+    service: 'advisor', host: 'advisor.tencentcloudapi.com', action: 'DescribeArchList', version: '2020-07-21',
+    payload: {
       PageNumber: pageNumber,
       PageSize: pageSize,
       SearchKey: '',
@@ -297,8 +298,8 @@ function cloudqArchitectureList({ folderId, pageNumber = 1, pageSize = 30 }) {
       WithSvgURL: true,
       Tags: [],
       TagKeys: [],
-    }),
-  ])
+    },
+  })
 }
 
 /**

@@ -3710,11 +3710,9 @@ function CloudQSettingsCard() {
       setFeedback({ kind: 'success', text: successText })
     } catch (error) {
       setValidated(false)
-      // script-launch-failed 是宿主缺 Python 环境，与密钥有效性无关。
       const invalid = error instanceof CloudQApiError
         && error.code !== 'network-error'
         && error.code !== 'invalid-response'
-        && error.code !== 'script-launch-failed'
       setFeedback({
         kind: 'error',
         text: invalid ? 'AKSK 无效，请检查后重新配置。' : error.message,

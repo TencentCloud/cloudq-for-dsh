@@ -9,7 +9,7 @@ const manifest = JSON.parse(read('package.json'))
 describe('npm and DSH package contract', () => {
   it('declares the public package, repository, runtime files, and official registry', () => {
     expect(manifest.name).toBe('dsh-cloudq')
-    expect(manifest.version).toBe('0.2.1')
+    expect(manifest.version).toBe('0.3.0')
     expect(manifest.repository.url).toBe('git+https://github.com/TencentCloud/cloudq-for-dsh.git')
     expect(manifest.homepage).toBe('https://github.com/TencentCloud/cloudq-for-dsh#readme')
     expect(manifest.bugs.url).toBe('https://github.com/TencentCloud/cloudq-for-dsh/issues')
@@ -44,10 +44,17 @@ describe('npm and DSH package contract', () => {
   it('contains no production debug global, innerHTML sink, or credential argv bridge', () => {
     const client = read('src/client/index.js')
     const host = read('src/index.js')
+    const tcloud = read('src/tcloud.js')
     expect(client).not.toContain('__cloudqCtx')
     expect(client).not.toContain('innerHTML')
     expect(host).not.toMatch(/\['--(?:test|save)',\s*secretId,\s*secretKey\]/)
-    expect(host).toContain("['--save', '--stdin']")
-    expect(host).toContain("['--test', '--stdin']")
+    // Panel API calls run in-process on Node — no credential-bearing
+    // subprocess is ever spawned (argv would leak into the process list).
+    expect(host).not.toContain('save_ak.py')
+    expect(host).not.toContain('login.py')
+    expect(host).not.toContain('logout.py')
+    // The SecretKey never leaves the signing function: it is only an HMAC key.
+    expect(tcloud).toContain('credential.secretKey')
+    expect(tcloud).not.toContain('console.log')
   })
 })
