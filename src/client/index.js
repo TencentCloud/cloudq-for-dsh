@@ -1158,7 +1158,9 @@ body.dsh-cloudq-mode-active [class*=composerHero] [class*=root][class*=hero] {
 }
 .dsh-cloudq-convo-chip {
   position: fixed;
-  top: 20px;
+  /* Below the conversation header divider (header bottom ≈76px) so the chip
+     never overlaps the Session log affordance in the title row. */
+  top: 88px;
   right: 16px;
   display: inline-flex;
   align-items: center;
@@ -1749,11 +1751,23 @@ body.dsh-cloudq-mode-active [class*=composerHero] [class*=root][class*=hero] {
 }
 .dsh-cloudq-artifact__download {
   justify-self: end;
+  padding: 0;
+  border: 0;
+  background: none;
   color: var(--dsw-alias-state-business-primary, #006eff);
+  font: inherit;
   text-decoration: none;
+  cursor: pointer;
 }
 .dsh-cloudq-artifact__download:hover {
   text-decoration: underline;
+}
+.dsh-cloudq-artifact__download:disabled {
+  cursor: default;
+  opacity: .6;
+}
+span.dsh-cloudq-artifact__download {
+  cursor: default;
 }
 /* architecture library */
 .dsh-cloudq-arch__toolbar {
@@ -2192,12 +2206,12 @@ let panelEl = null
 let panelBody = null
 let panelView = 'usage'
 let panelExpanded = false
-let inspirationCache = null
 let inspirationCategory = 0
-let artifactCache = null
-let artifactTotal = 0
-let architectureDirectoriesCache = null
-let architectureFirstFolderId = null
+// Session ids the user collapsed in the artifact view; preserved across
+// silent repaints so a background refresh never disturbs the layout.
+const artifactCollapsedSessions = new Set()
+let artifactRefreshTimer = 0
+let artifactRetryTimer = 0
 let architectureRequestSeq = 0
 let architecturePickerCleanup = null
 
@@ -2505,10 +2519,6 @@ function renderInspirationView() {
     }
   }
 
-  if (inspirationCache) {
-    paint(inspirationCache)
-    return
-  }
   const hint = document.createElement('div')
   hint.className = 'dsh-cloudq-panel__hint'
   hint.textContent = '正在加载灵感…'
@@ -2516,8 +2526,7 @@ function renderInspirationView() {
   requireCloudqCredential()
     .then(() => cloudqRequest(API_INSPIRATIONS))
     .then((data) => {
-      inspirationCache = Array.isArray(data.inspirations) ? data.inspirations : []
-      paint(inspirationCache)
+      paint(Array.isArray(data.inspirations) ? data.inspirations : [])
     })
     .catch((error) => {
       if (!panelExpanded) return
@@ -2529,10 +2538,31 @@ function renderInspirationView() {
     })
 }
 
-function renderArtifactView({ force = false } = {}) {
-  panelBody.textContent = ''
+/**
+ * Refresh the artifact list in the background after a CloudQ conversation
+ * turn completes. Never shows the loading hint: the visible list stays
+ * untouched and is repainted synchronously once fresh data arrives. The
+ * delayed retry covers artifacts archived with a lag.
+ */
+function scheduleArtifactSilentRefresh() {
+  window.clearTimeout(artifactRefreshTimer)
+  window.clearTimeout(artifactRetryTimer)
+  const run = () => {
+    cloudqRequest(API_ARTIFACTS)
+      .then((data) => {
+        if (panelView !== 'artifact' || !panelExpanded) return
+        paintArtifactList(
+          Array.isArray(data?.sessions) ? data.sessions : [],
+          Number(data?.total) || 0,
+        )
+      })
+      .catch(() => {})
+  }
+  artifactRefreshTimer = window.setTimeout(run, 3000)
+  artifactRetryTimer = window.setTimeout(run, 15000)
+}
 
-  const paint = (sessions, total) => {
+function paintArtifactList(sessions, total) {
     if (panelView !== 'artifact' || !panelExpanded) return
     panelBody.textContent = ''
 
@@ -2551,11 +2581,7 @@ function renderArtifactView({ force = false } = {}) {
     refresh.className = 'dsh-cloudq-artifact__refresh'
     refresh.dataset.testid = 'cloudq-artifact-refresh-btn'
     refresh.textContent = '刷新'
-    refresh.addEventListener('click', () => {
-      artifactCache = null
-      artifactTotal = 0
-      renderArtifactView({ force: true })
-    })
+    refresh.addEventListener('click', () => renderArtifactView())
     toolbar.appendChild(summary)
     toolbar.appendChild(refresh)
     panelBody.appendChild(toolbar)
@@ -2581,14 +2607,17 @@ function renderArtifactView({ force = false } = {}) {
 
     for (const session of safeSessions) {
       const artifacts = Array.isArray(session?.Artifacts) ? session.Artifacts : []
+      const sessionKey = String(session?.SessionID ?? '')
       const group = document.createElement('section')
       group.className = 'dsh-cloudq-artifact__session'
+      const startCollapsed = sessionKey !== '' && artifactCollapsedSessions.has(sessionKey)
+      if (startCollapsed) group.classList.add('is-collapsed')
 
       const sessionHead = document.createElement('button')
       sessionHead.type = 'button'
       sessionHead.className = 'dsh-cloudq-artifact__session-head'
       sessionHead.dataset.testid = `cloudq-artifact-session-${session?.SessionID ?? 'unknown'}`
-      sessionHead.setAttribute('aria-expanded', 'true')
+      sessionHead.setAttribute('aria-expanded', String(!startCollapsed))
 
       const chevron = document.createElement('span')
       chevron.className = 'dsh-cloudq-artifact__chevron'
@@ -2634,14 +2663,47 @@ function renderArtifactView({ force = false } = {}) {
         time.textContent = formatDateTime(artifact?.ArchiveTime)
 
         const downloadUrl = safeDownloadUrl(artifact?.DownloadURL)
-        const action = document.createElement(downloadUrl ? 'a' : 'span')
+        const fileName = artifact?.FileName || '未命名文件'
+        const action = document.createElement(downloadUrl ? 'button' : 'span')
         action.className = 'dsh-cloudq-artifact__download'
         action.textContent = downloadUrl ? '下载' : '不可用'
         if (downloadUrl) {
-          action.href = downloadUrl
-          action.target = '_blank'
-          action.rel = 'noopener noreferrer'
+          action.type = 'button'
           action.dataset.testid = `cloudq-artifact-download-${artifact?.ArtifactID ?? 'unknown'}`
+          // Download in place via fetch+blob so the browser never opens a
+          // throwaway tab (the old target=_blank anchor visibly flashed one).
+          // A CORS-blocked fetch falls back to a plain attachment anchor.
+          action.addEventListener('click', () => {
+            if (action.disabled) return
+            action.disabled = true
+            action.textContent = '下载中…'
+            const restore = () => {
+              action.disabled = false
+              action.textContent = '下载'
+            }
+            fetch(downloadUrl)
+              .then((res) => {
+                if (!res.ok) throw new Error(`download failed: ${res.status}`)
+                return res.blob()
+              })
+              .then((blob) => {
+                const objectUrl = URL.createObjectURL(blob)
+                const link = document.createElement('a')
+                link.href = objectUrl
+                link.download = fileName
+                link.rel = 'noopener noreferrer'
+                link.click()
+                window.setTimeout(() => URL.revokeObjectURL(objectUrl), 10000)
+              })
+              .catch(() => {
+                const link = document.createElement('a')
+                link.href = downloadUrl
+                link.download = fileName
+                link.rel = 'noopener noreferrer'
+                link.click()
+              })
+              .finally(restore)
+          })
         }
 
         row.appendChild(main)
@@ -2654,19 +2716,21 @@ function renderArtifactView({ force = false } = {}) {
       sessionHead.addEventListener('click', () => {
         const collapsed = group.classList.toggle('is-collapsed')
         sessionHead.setAttribute('aria-expanded', String(!collapsed))
+        if (sessionKey) {
+          if (collapsed) artifactCollapsedSessions.add(sessionKey)
+          else artifactCollapsedSessions.delete(sessionKey)
+        }
       })
       group.appendChild(sessionHead)
       group.appendChild(files)
       list.appendChild(group)
     }
     panelBody.appendChild(list)
-  }
+}
 
-  if (artifactCache !== null && !force) {
-    paint(artifactCache, artifactTotal)
-    return
-  }
-
+// 制品数据不缓存：切到制品页总是实时拉取。
+function renderArtifactView() {
+  panelBody.textContent = ''
   const hint = document.createElement('div')
   hint.className = 'dsh-cloudq-panel__hint'
   hint.textContent = '正在加载制品…'
@@ -2674,9 +2738,10 @@ function renderArtifactView({ force = false } = {}) {
   requireCloudqCredential()
     .then(() => cloudqRequest(API_ARTIFACTS))
     .then((data) => {
-      artifactCache = Array.isArray(data?.sessions) ? data.sessions : []
-      artifactTotal = Number(data?.total) || artifactCache.length
-      paint(artifactCache, artifactTotal)
+      paintArtifactList(
+        Array.isArray(data?.sessions) ? data.sessions : [],
+        Number(data?.total) || 0,
+      )
     })
     .catch((error) => {
       if (panelView !== 'artifact' || !panelExpanded) return
@@ -2942,14 +3007,18 @@ function renderArchitectureView() {
 
           for (const architecture of architectures) {
             const imageUrl = safeDownloadUrl(architecture?.SvgURL)
-            const card = document.createElement(imageUrl ? 'a' : 'article')
+            const archId = typeof architecture?.ArchId === 'string' ? architecture.ArchId.trim() : ''
+            const consoleUrl = archId
+              ? `https://console.cloud.tencent.com/advisor?archId=${encodeURIComponent(archId)}`
+              : ''
+            const card = document.createElement(consoleUrl ? 'a' : 'article')
             card.className = 'dsh-cloudq-arch__card'
             card.dataset.testid = `cloudq-architecture-card-${architecture?.ArchId ?? 'unknown'}`
-            if (imageUrl) {
-              card.href = imageUrl
+            if (consoleUrl) {
+              card.href = consoleUrl
               card.target = '_blank'
               card.rel = 'noopener noreferrer'
-              card.setAttribute('aria-label', `查看架构图：${architecture?.ArchName || '未命名系统'}`)
+              card.setAttribute('aria-label', `打开架构图：${architecture?.ArchName || '未命名系统'}`)
             }
 
             const preview = document.createElement('div')
@@ -2969,7 +3038,7 @@ function renderArchitectureView() {
               image.addEventListener('load', () => placeholder.remove())
               image.addEventListener('error', () => {
                 image.remove()
-                placeholder.textContent = '预览加载失败，点击可打开原图'
+                placeholder.textContent = consoleUrl ? '预览加载失败，点击打开架构图' : '预览加载失败'
               })
               preview.appendChild(image)
             }
@@ -3007,16 +3076,13 @@ function renderArchitectureView() {
     loadArchitectures(selectedFolderId)
   }
 
-  if (architectureDirectoriesCache !== null) {
-    paintDirectories(architectureDirectoriesCache, architectureFirstFolderId)
-    return
-  }
   requireCloudqCredential()
     .then(() => cloudqRequest(API_ARCH_DIRECTORIES))
     .then((data) => {
-      architectureDirectoriesCache = Array.isArray(data?.folders) ? data.folders : []
-      architectureFirstFolderId = Number(data?.firstFolderId) || null
-      paintDirectories(architectureDirectoriesCache, architectureFirstFolderId)
+      paintDirectories(
+        Array.isArray(data?.folders) ? data.folders : [],
+        Number(data?.firstFolderId) || null,
+      )
     })
     .catch((error) => {
       if (panelView !== 'architecture' || !panelExpanded || viewRequest !== architectureRequestSeq) return
@@ -3351,12 +3417,7 @@ function installCloudqHero() {
       panelEl = null
       panelBody = null
     }
-    inspirationCache = null
     inspirationCategory = 0
-    artifactCache = null
-    artifactTotal = 0
-    architectureDirectoriesCache = null
-    architectureFirstFolderId = null
     architectureRequestSeq += 1
     panelView = 'usage'
   }
@@ -4050,6 +4111,27 @@ function apply(ctx) {
       window.removeEventListener('storage', onStorage)
     }
   }, 'dsh-cloudq: reconcile durable session identities')
+
+  ctx.effect(() => {
+    // A finished CloudQ turn may have produced new artifacts. The session
+    // list snapshot is the authoritative activity feed (host/session-status
+    // frames), so watch each session's running flag and fire a silent
+    // artifact refresh on its true → false edge — the same edge the Host
+    // runtime itself uses for completion notifications.
+    const list = ctx?.sessions?.list
+    if (!list?.subscribe || !list?.getSnapshot) return undefined
+    const prevRunning = new Map()
+    return list.subscribe(() => {
+      const byId = list.getSnapshot()?.byId ?? {}
+      for (const [id, summary] of Object.entries(byId)) {
+        const running = summary?.running === true
+        if (prevRunning.get(id) === true && !running && cloudqSessions.has(id)) {
+          scheduleArtifactSilentRefresh()
+        }
+        prevRunning.set(id, running)
+      }
+    })
+  }, 'dsh-cloudq: refresh artifacts on turn completion')
 
   ctx.effect(() => {
     // Mark the session the moment a `/cloudq` claim is submitted: intercept

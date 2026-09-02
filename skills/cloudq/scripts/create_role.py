@@ -104,7 +104,7 @@ def find_available_role_name() -> tuple:
 
 
 def save_config(account_uin: str, role_arn: str, role_id: str = "",
-                auto_created: bool = True):
+                auto_created: bool = True, role_name: str = ""):
     """保存配置到文件"""
     CONFIG_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -114,15 +114,25 @@ def save_config(account_uin: str, role_arn: str, role_id: str = "",
         except OSError:
             pass
 
+    # 保留 DSH 插件写入的免密开关偏好，避免重建角色时被重置。
+    existing = {}
+    if CONFIG_FILE.exists():
+        try:
+            existing = json.loads(CONFIG_FILE.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, IOError):
+            existing = {}
+
     config = {
         "accountUin": account_uin,
-        "roleName": ROLE_NAME,
+        "roleName": role_name or ROLE_NAME,
         "roleArn": role_arn,
         "roleId": role_id,
         "configuredAt": datetime.now(timezone.utc).isoformat(),
         "autoCreated": auto_created,
         "version": "1.0",
     }
+    if isinstance(existing.get("enabled"), bool):
+        config["enabled"] = existing["enabled"]
 
     CONFIG_FILE.write_text(
         json.dumps(config, indent=2, ensure_ascii=False),
@@ -152,6 +162,21 @@ def main():
     # ============== 1. 检查 AK/SK ==============
     secret_id = os.environ.get("TENCENTCLOUD_SECRET_ID", "")
     secret_key = os.environ.get("TENCENTCLOUD_SECRET_KEY", "")
+
+    # 环境变量缺失时回退到凭证文件（与 login_url.py 一致），
+    # 使 DSH 插件等宿主可直接调用而无需注入环境变量。
+    if not secret_id or not secret_key:
+        try:
+            from credential_manager import get_credential
+            cred = get_credential()
+            secret_id = cred["secretId"]
+            secret_key = cred["secretKey"]
+            if cred.get("token"):
+                os.environ["TENCENTCLOUD_TOKEN"] = cred["token"]
+        except ImportError:
+            pass
+        except Exception:
+            pass
 
     if not secret_id or not secret_key:
         print(output_json(output_error(
@@ -210,7 +235,7 @@ def main():
                     attach_warnings.append(f"策略 {policy_name} 关联失败: {err_msg}")
                     print(f"WARNING: {attach_warnings[-1]}", file=sys.stderr)
 
-        save_config(account_uin, role_arn, role_id, auto_created=False)
+        save_config(account_uin, role_arn, role_id, auto_created=False, role_name=target_role)
         result = output_success(role_arn, account_uin, role_id)
         result["data"]["roleName"] = target_role
         if attach_warnings:
@@ -266,7 +291,7 @@ def main():
 
     # ============== 6. 保存配置 ==============
     role_arn = f"qcs::cam::uin/{account_uin}:roleName/{target_role}"
-    save_config(account_uin, role_arn, role_id, auto_created=True)
+    save_config(account_uin, role_arn, role_id, auto_created=True, role_name=target_role)
 
     # ============== 7. 输出结果 ==============
     result = output_success(role_arn, account_uin, role_id)
