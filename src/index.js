@@ -229,6 +229,7 @@ async function detectCloudqSessionIds(ctx) {
   }
   const records = await query.listSessions()
   const ids = []
+  const knownIds = []
   // Bound concurrent full-log reads: a user may have hundreds of sessions and
   // one large transcript must not block every other read or spike memory.
   const queue = [...records]
@@ -237,6 +238,7 @@ async function detectCloudqSessionIds(ctx) {
       const record = queue.shift()
       const sessionId = record?.header?.id
       if (!sessionId) continue
+      knownIds.push(sessionId)
       try {
         const snapshot = await query.readSession(sessionId)
         if (hasCloudqEvidence(snapshot?.events)) ids.push(sessionId)
@@ -246,7 +248,7 @@ async function detectCloudqSessionIds(ctx) {
     }
   }
   await Promise.all(Array.from({ length: Math.min(6, queue.length) }, () => worker()))
-  return ids
+  return { ids, knownIds }
 }
 
 // ---------------------------------------------------------------------------
@@ -536,8 +538,8 @@ export function apply(ctx) {
           handler: async (request, response) => {
             try {
               assertSafeRequest(request, 'GET')
-              const sessionIds = await detectCloudqSessionIds(ctx)
-              sendJson(response, 200, { ok: true, sessionIds })
+              const { ids, knownIds } = await detectCloudqSessionIds(ctx)
+              sendJson(response, 200, { ok: true, sessionIds: ids, knownIds })
             } catch (error) {
               sendError(response, error)
             }

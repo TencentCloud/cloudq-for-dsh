@@ -610,19 +610,28 @@ function isCloudqSession(sessionId) {
 }
 
 let cloudqHistorySync = null
+let reconcileQueued = false
 function reconcileCloudqSessionsFromHost() {
-  if (cloudqHistorySync) return cloudqHistorySync
+  // A scan started before new events landed returns stale evidence; queue one
+  // follow-up instead of dropping the trigger so fresh sessions are picked up
+  // as soon as the in-flight request settles.
+  if (cloudqHistorySync) {
+    reconcileQueued = true
+    return cloudqHistorySync
+  }
   cloudqHistorySync = cloudqRequest(API_CLOUDQ_SESSIONS, undefined, 60000)
     .then((response) => {
       const detected = new Set(Array.isArray(response?.sessionIds) ? response.sessionIds : [])
-      const snapshot = cloudqCtx?.sessions?.list?.getSnapshot?.()
-      // A materialized non-blank log is authoritative: remove stale ids
-      // created by the old timing heuristic, then merge all durable CloudQ
-      // evidence. Preserve blank ids because they have no log to inspect.
-      for (const sessionId of Array.from(cloudqSessions)) {
-        const summary = snapshot?.byId?.[sessionId]
-        if (summary && !summary.blank && !detected.has(sessionId)) {
-          cloudqSessions.delete(sessionId)
+      const known = new Set(Array.isArray(response?.knownIds) ? response.knownIds : [])
+      // Only ever add ids here: the client's mode-entry mark is authoritative,
+      // and host log evidence merely backfills sessions marked on other
+      // browsers. Absence of evidence proves nothing — a scan can race the
+      // turn that writes it, and a model may legitimately never invoke the
+      // skill tool in a CloudQ session. The only safe deletion is for ids
+      // whose session log no longer exists on disk at all.
+      if (known.size > 0) {
+        for (const sessionId of Array.from(cloudqSessions)) {
+          if (!known.has(sessionId)) cloudqSessions.delete(sessionId)
         }
       }
       for (const sessionId of detected) cloudqSessions.add(sessionId)
@@ -631,7 +640,13 @@ function reconcileCloudqSessionsFromHost() {
       return detected
     })
     .catch(() => new Set())
-    .finally(() => { cloudqHistorySync = null })
+    .finally(() => {
+      cloudqHistorySync = null
+      if (reconcileQueued) {
+        reconcileQueued = false
+        void reconcileCloudqSessionsFromHost()
+      }
+    })
   return cloudqHistorySync
 }
 
@@ -898,6 +913,22 @@ function rowTitle(row) {
  * order (manual and recent-order variants). Only if a collapsed/search
  * view prevents an exact sequence match do we fall back to title matching.
  */
+// Session rows carry no DOM id attribute, but their React fiber holds the
+// session summary (`props.node.id`). Walking the fiber gives an exact mapping
+// that duplicate titles cannot break; order/title matching stays as fallback.
+function rowSessionId(row) {
+  const fiberKey = Object.keys(row).find((key) => key.startsWith('__reactFiber$'))
+  if (!fiberKey) return undefined
+  let fiber = row[fiberKey]
+  for (let depth = 0; fiber && depth < 12; depth += 1) {
+    const props = fiber.memoizedProps
+    const id = props?.node?.id ?? props?.sessionId
+    if (typeof id === 'string' && id.startsWith('session-')) return id
+    fiber = fiber.return
+  }
+  return undefined
+}
+
 function installSessionBadges() {
   let disposed = false
   let frame = 0
@@ -939,9 +970,12 @@ function installSessionBadges() {
         ?? (selected ? snapshot.byId?.[snapshot.current] : undefined)
       const candidates = exact ? [exact] : (byTitle.get(title) ?? [])
       const states = new Set(candidates.map((summary) => isCloudqSession(summary.id)))
-      // A mixed duplicate-title fallback remains unmarked; exact-order
-      // resolution above handles normal workspace views without guessing.
-      const cloudq = candidates.length > 0 && states.size === 1 && states.has(true)
+      // The fiber-derived id is exact; without it, a mixed duplicate-title
+      // fallback stays unmarked rather than guessing across namesakes.
+      const fiberId = rowSessionId(row)
+      const cloudq = fiberId !== undefined
+        ? isCloudqSession(fiberId)
+        : candidates.length > 0 && states.size === 1 && states.has(true)
       const existing = row.querySelector('[data-cloudq-session-badge="true"]')
 
       if (!cloudq) {
@@ -4004,12 +4038,47 @@ function apply(ctx) {
       window.dispatchEvent(new CustomEvent('dsh-cloudq:sessions-changed'))
     }
     window.addEventListener('storage', onStorage)
+    // Host evidence is the durable backstop for marks made on other browsers
+    // or before this plugin loaded; local send-time marking covers the rest.
+    const backstop = window.setInterval(() => {
+      if (!disposed) void reconcileCloudqSessionsFromHost()
+    }, 30000)
     syncHistory()
     return () => {
       disposed = true
+      window.clearInterval(backstop)
       window.removeEventListener('storage', onStorage)
     }
   }, 'dsh-cloudq: reconcile durable session identities')
+
+  ctx.effect(() => {
+    // Mark the session the moment a `/cloudq` claim is submitted: intercept
+    // the composer's send affordances at capture time, while the draft is
+    // still readable. DSH reuses the current blank session id for the new
+    // conversation, so marking the current id is exact.
+    const markIfCloudqClaim = () => {
+      const textarea = document.querySelector('textarea[class*=input]')
+      const draft = typeof textarea?.value === 'string' ? textarea.value : ''
+      if (!/^\s*\/cloudq(?:\s|$)/i.test(draft)) return
+      const sessionId = cloudqCtx?.sessions?.selection?.getSnapshot?.()?.sessionId
+        ?? cloudqCtx?.sessions?.list?.getSnapshot?.()?.current
+      if (sessionId) markCloudqSession(sessionId)
+    }
+    const onKeyDown = (event) => {
+      if (event.key !== 'Enter' || event.shiftKey || event.isComposing) return
+      if (event.target instanceof HTMLTextAreaElement) markIfCloudqClaim()
+    }
+    const onClick = (event) => {
+      const button = event.target?.closest?.('button[class*=primary]')
+      if (button) markIfCloudqClaim()
+    }
+    document.addEventListener('keydown', onKeyDown, true)
+    document.addEventListener('click', onClick, true)
+    return () => {
+      document.removeEventListener('keydown', onKeyDown, true)
+      document.removeEventListener('click', onClick, true)
+    }
+  }, 'dsh-cloudq: mark session on claim submit')
 
   ctx.effect(installStyles, 'dsh-cloudq: styles')
   ctx.effect(
