@@ -2,10 +2,16 @@
 
 [![npm version](https://img.shields.io/npm/v/dsh-cloudq)](https://www.npmjs.com/package/dsh-cloudq)
 [![npm downloads](https://img.shields.io/npm/dt/dsh-cloudq)](https://www.npmjs.com/package/dsh-cloudq)
+[![node](https://img.shields.io/node/v/dsh-cloudq)](https://www.npmjs.com/package/dsh-cloudq)
+[![license](https://img.shields.io/github/license/TencentCloud/cloudq-for-dsh)](LICENSE)
 
 English | [简体中文](README-zh.md)
 
 CloudQ integration for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness). It adds a CloudQ mode to the Web profile, bundles the `cloudq` skill, and provides CloudQ usage and architecture views, local credential setup, and plugin management.
+
+## Demo
+
+![dsh-cloudq demo](assets/demo.gif)
 
 ## Screenshots
 
@@ -51,6 +57,24 @@ Restart the Web profile after changing the installed package set.
 3. Click **测试连接** to validate the pair, then **保存配置**. The card shows **AKSK有效** once the credential is active.
 4. Click **进入 CloudQ 模式** in the conversation input area — or type `/cloudq` — and start asking cloud operations questions, e.g. “帮我看看系统有哪些风险”.
 
+## How it works
+
+```mermaid
+flowchart LR
+  U["User"] --> W["DSH Web Profile"]
+  W --> P["dsh-cloudq plugin"]
+  P --> CL["client end<br/>sidebar / panels / settings"]
+  P --> HOST["host end (Node)<br/>credentials / usage / artifacts / architecture / self-update"]
+  CL -- "/api/dsh-cloudq/*" --> HOST
+  HOST -- "TC3-HMAC-SHA256 signing<br/>in-process, no external runtime" --> TC["Tencent Cloud Advisor API"]
+  P --> SK["bundled cloudq skill"]
+  SK -- "CloudQ conversation mode<br/>agent executes" --> PY["Python helpers"]
+  PY --> TC
+  style HOST fill:#ddf4ff
+  style SK fill:#dafbe1
+  style TC fill:#fff1e5
+```
+
 ## Credentials
 
 The settings card accepts a Tencent Cloud `SecretId`/`SecretKey` pair.
@@ -72,6 +96,30 @@ Follow least-privilege: grant only the permissions required for the CloudQ opera
 - No credentials, tokens, or local environment files are included in the npm package.
 
 Report security issues through [GitHub Issues](https://github.com/TencentCloud/cloudq-for-dsh/issues) without including live credentials.
+
+## FAQ
+
+**Can't install or update to the latest version? (24-hour supply-chain cooling period)**
+
+pnpm 11 only installs versions that have been published for at least 24 hours. Right after a release, pin the version explicitly:
+
+```sh
+dsh plugin --profile web add dsh-cloudq@0.3.0
+```
+
+or wait for the cooldown to expire and the bare command will resolve to the newest release.
+
+**Does it work on Windows? Do I need Python?**
+
+Yes. The settings, usage, inspiration, artifact, and architecture panels are a native Node implementation and need **no Python** on any of macOS / Linux / Windows. Only **CloudQ conversation mode** is driven by the bundled skill and requires `python3`.
+
+**Where is my AK/SK stored? Is it safe?**
+
+At `~/.tencent-cloudq/credential.json` (owner-only permissions). Panel APIs sign in-process; credentials never pass through a subprocess or appear in process lists. The **退出登录** action removes it.
+
+**Why does 测试连接 fail?**
+
+On 0.3.0+ the panels no longer depend on Python. If it still fails, make sure the key belongs to the current account and that Smart Advisor (CloudQ) is enabled for it.
 
 ## Development
 

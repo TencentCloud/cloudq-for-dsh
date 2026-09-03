@@ -2,10 +2,16 @@
 
 [![npm version](https://img.shields.io/npm/v/dsh-cloudq)](https://www.npmjs.com/package/dsh-cloudq)
 [![npm downloads](https://img.shields.io/npm/dt/dsh-cloudq)](https://www.npmjs.com/package/dsh-cloudq)
+[![node](https://img.shields.io/node/v/dsh-cloudq)](https://www.npmjs.com/package/dsh-cloudq)
+[![license](https://img.shields.io/github/license/TencentCloud/cloudq-for-dsh)](LICENSE)
 
 [English](README.md) | 简体中文
 
 面向 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 的 CloudQ 集成插件。插件为 Web Profile 提供 CloudQ 模式，内置 `cloudq` Skill，并提供 CloudQ 用量、架构视图、本地凭证配置和插件管理能力。
+
+## 演示
+
+![dsh-cloudq 演示](assets/demo.gif)
 
 ## 截图
 
@@ -51,6 +57,24 @@ dsh plugin --profile web remove dsh-cloudq
 3. 点击 **测试连接** 验证密钥，再点击 **保存配置**；卡片显示 **AKSK有效** 即配置成功。
 4. 在对话输入区点击 **进入 CloudQ 模式**（或输入 `/cloudq`），即可开始提问，例如「帮我看看系统有哪些风险」。
 
+## 工作原理
+
+```mermaid
+flowchart LR
+  U["用户"] --> W["DSH Web Profile"]
+  W --> P["dsh-cloudq 插件"]
+  P --> CL["client 端<br/>侧栏 / 能力面板 / 设置"]
+  P --> HOST["host 端（Node）<br/>凭证 / 用量 / 制品 / 架构图 / 自更新"]
+  CL -- "/api/dsh-cloudq/*" --> HOST
+  HOST -- "TC3-HMAC-SHA256 签名<br/>进程内完成，零外部依赖" --> TC["腾讯云智能顾问 API"]
+  P --> SK["内置 cloudq Skill"]
+  SK -- "CloudQ 对话模式<br/>由 Agent 执行" --> PY["Python 辅助脚本"]
+  PY --> TC
+  style HOST fill:#ddf4ff
+  style SK fill:#dafbe1
+  style TC fill:#fff1e5
+```
+
 ## 凭证配置
 
 设置卡片支持配置腾讯云 `SecretId` 和 `SecretKey` 凭证。
@@ -72,6 +96,30 @@ dsh plugin --profile web remove dsh-cloudq
 - npm 包不包含凭证、Token 或本地环境文件。
 
 如需报告安全问题，请通过 [GitHub Issues](https://github.com/TencentCloud/cloudq-for-dsh/issues) 提交，且不要附带真实凭证。
+
+## 常见问题
+
+**装/更新不到最新版本？（供应链 24 小时冷却期）**
+
+pnpm 11 默认只安装发布满 24 小时的版本。刚发版后请用显式版本号：
+
+```sh
+dsh plugin --profile web add dsh-cloudq@0.3.0
+```
+
+或等待冷却期结束，裸命令即可解析到最新版本。
+
+**Windows 能用吗？需要装 Python 吗？**
+
+能。设置、用量、灵感、制品、架构图等功能为 Node 原生实现，macOS / Linux / Windows 均**不需要 Python**。仅 **CloudQ 对话模式**由内置 Skill 驱动，需要 `python3`。
+
+**AK/SK 存在哪里？安全吗？**
+
+存于 `~/.tencent-cloudq/credential.json`（权限仅当前用户）。面板接口在进程内签名，凭证不经过子进程、不会出现在进程列表中。点「退出登录」即可删除。
+
+**为什么点「测试连接」失败？**
+
+0.3.0 起面板已不依赖 Python。若仍失败，请确认该密钥属于当前账号，且已为它开通智能顾问（CloudQ）。
 
 ## 本地开发
 
