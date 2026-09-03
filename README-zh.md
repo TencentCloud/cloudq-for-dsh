@@ -13,12 +13,6 @@
 
 ![dsh-cloudq 演示](assets/demo.gif)
 
-## 截图
-
-![CloudQ 风险分析对话](assets/screenshots/chat-risk-analysis.png)
-
-![CloudQ 设置与插件管理](assets/screenshots/settings.png)
-
 ## 环境要求
 
 - Node.js `>=22.19.0`

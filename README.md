@@ -13,12 +13,6 @@ CloudQ integration for [DeepSeek Harness](https://github.com/deepseek-ai/deepsee
 
 ![dsh-cloudq demo](assets/demo.gif)
 
-## Screenshots
-
-![CloudQ risk analysis conversation](assets/screenshots/chat-risk-analysis.png)
-
-![CloudQ settings and plugin management](assets/screenshots/settings.png)
-
 ## Requirements
 
 - Node.js `>=22.19.0`
