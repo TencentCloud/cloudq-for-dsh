@@ -9,6 +9,17 @@ English | [简体中文](README-zh.md)
 
 CloudQ integration for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness). It adds a CloudQ mode to the Web profile, bundles the `cloudq` skill, and provides CloudQ usage and architecture views, local credential setup, and plugin management.
 
+## New in 0.4.0
+
+- A new welcome page with categorized suggestions, promotions and a quick credential dialog; the native DSH composer remains unchanged.
+- Subscription quotas, active credit packs and paginated usage details; purchases open official Tencent Cloud pages.
+- In-page read-only architecture details with 2D/3D, zoom, fit, fullscreen and live light/dark themes.
+- A centered side handle replaces the top toggle. Suggestions remain on the welcome page instead of a separate panel tab.
+
+The bundled Tessera runtime prefers WebGPU and falls back to WebGL2. If neither backend works, open the diagram in Cloud Advisor. Third-party licenses and runtime provenance are included in [`assets/tessera/NOTICE`](assets/tessera/NOTICE). A customer-resource tab is not included in this release.
+
+Credentials remain in a local plaintext file, not an encrypted vault. Unix uses directory mode 700 and file mode 600; Windows access control depends on the user directory ACL. Use least-privilege keys and protect the local OS account.
+
 ## Demo
 
 ![dsh-cloudq demo](assets/demo.gif)

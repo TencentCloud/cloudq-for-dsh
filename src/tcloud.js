@@ -9,8 +9,8 @@
  * @module dsh-cloudq/tcloud
  */
 
-import { createHmac, createHash } from 'node:crypto'
-import { chmodSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs'
+import { createHmac, createHash, randomUUID } from 'node:crypto'
+import { chmodSync, lstatSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { request as httpsRequest } from 'node:https'
 import { dirname, join } from 'node:path'
@@ -73,26 +73,46 @@ export function saveCredential(secretId, secretKey) {
     createdAt: new Date().toISOString(),
   }
   const directory = dirname(CREDENTIAL_FILE)
-  mkdirSync(directory, { recursive: true })
-  const temporary = `${CREDENTIAL_FILE}.tmp-${process.pid}`
-  writeFileSync(temporary, JSON.stringify(data, null, 2), { encoding: 'utf8', mode: 0o600 })
-  renameSync(temporary, CREDENTIAL_FILE)
-  if (process.platform !== 'win32') {
-    try {
-      chmodSync(directory, 0o700)
-      chmodSync(CREDENTIAL_FILE, 0o600)
-    } catch {
-      // best effort only
-    }
+  mkdirSync(directory, { recursive: true, mode: 0o700 })
+  const directoryStat = lstatSync(directory)
+  if (!directoryStat.isDirectory() || directoryStat.isSymbolicLink()) {
+    throw new HttpError(500, 'unsafe-credential-directory', '凭证目录不安全，请检查本地目录配置。')
+  }
+  if (process.platform !== 'win32') chmodSync(directory, 0o700)
+  const temporary = `${CREDENTIAL_FILE}.tmp-${randomUUID()}`
+  let created = false
+  try {
+    writeFileSync(temporary, JSON.stringify(data, null, 2), { encoding: 'utf8', mode: 0o600, flag: 'wx' })
+    created = true
+    renameSync(temporary, CREDENTIAL_FILE)
+    created = false
+  } finally {
+    if (created) unlinkSync(temporary)
   }
 }
 
-/** Remove the stored credential (退出登录). */
+let credentialRevision = 0
+
+export async function validateAndSaveCredential(secretId, secretKey, validate, isActive = () => true) {
+  const revision = ++credentialRevision
+  const deadline = Date.now() + 18000
+  await validate(secretId, secretKey)
+  if (revision !== credentialRevision || !isActive() || Date.now() >= deadline) {
+    throw new HttpError(409, 'credential-save-cancelled', '配置保存已取消或超时，请重新验证后保存。')
+  }
+  saveCredential(secretId, secretKey)
+  return credentialStatus()
+}
+
+/** Remove the stored credential and invalidate pending saves. */
 export function deleteCredential() {
+  credentialRevision++
   try {
     unlinkSync(CREDENTIAL_FILE)
-  } catch {
-    // already absent — nothing to clear
+  } catch (error) {
+    if (error?.code !== 'ENOENT') {
+      throw new HttpError(500, 'credential-delete-failed', '凭证删除失败，尚未退出登录，请检查本地文件权限。')
+    }
   }
 }
 
@@ -148,10 +168,20 @@ export async function callTcloudApi(
       { host, path: '/', method: 'POST', headers, timeout: 30000 },
       (response) => {
         let bodyText = ''
+        let bytes = 0
+        const maxBytes = ['DescribeArchDetail', 'DescribeProductDiagramListV1'].includes(action) ? 20 * 1024 * 1024 : 1024 * 1024
+        response.setEncoding('utf8')
         response.on('data', (chunk) => {
+          bytes += Buffer.byteLength(chunk)
+          if (bytes > maxBytes) {
+            rejectRequest(new HttpError(502, 'response-too-large', '腾讯云接口响应超过允许大小。'))
+            request.destroy()
+            return
+          }
           bodyText += chunk
-          if (bodyText.length > 1024 * 1024) request.destroy()
         })
+        response.on('error', () => rejectRequest(new HttpError(502, 'network-error', '腾讯云响应传输中断，请重试。')))
+        response.on('aborted', () => rejectRequest(new HttpError(502, 'network-error', '腾讯云响应传输中断，请重试。')))
         response.on('end', () => resolveRequest(bodyText))
       },
     )

@@ -33,7 +33,7 @@ import {
   credentialStatus as readCredentialStatus,
   deleteCredential,
   maskSecretId,
-  saveCredential,
+  validateAndSaveCredential,
 } from './tcloud.js'
 
 const LOGO_PATH = resolve(dirname(fileURLToPath(import.meta.url)), '../assets/cloudq.png')
@@ -247,10 +247,8 @@ async function testAccessKey(secretId, secretKey) {
 }
 
 /** Validate then persist a long-lived AK/SK pair as `type:"ak"`. */
-async function saveAccessKey(secretId, secretKey) {
-  await testAccessKey(secretId, secretKey)
-  saveCredential(secretId, secretKey)
-  return readCredentialStatus()
+async function saveAccessKey(secretId, secretKey, isActive) {
+  return validateAndSaveCredential(secretId, secretKey, testAccessKey, isActive)
 }
 
 // CloudQ usage / inspiration data. `payload` must NOT include `Version` —
@@ -562,7 +560,7 @@ export function apply(ctx) {
             try {
               assertSafeRequest(request, 'POST')
               const { secretId, secretKey } = readAccessKeyBody(await readJsonBody(request))
-              const status = await saveAccessKey(secretId, secretKey)
+              const status = await saveAccessKey(secretId, secretKey, () => !response.destroyed && !request.aborted)
               sendJson(response, 200, { ok: true, status })
             } catch (error) {
               sendError(response, error)
@@ -591,6 +589,24 @@ export function apply(ctx) {
           },
         }),
       )
+
+      disposers.push(ctx.webServer.register({
+        kind: 'exact',
+        path: '/api/dsh-cloudq/welcome.png',
+        handler: (request, response) => {
+          try {
+            assertSafeRequest(request, 'GET')
+            const image = readFileSync(resolve(__dirname, '../assets/cloudq-hello.png'))
+            response.statusCode = 200
+            response.setHeader('Content-Type', 'image/png')
+            response.setHeader('Cache-Control', 'public, max-age=86400')
+            response.setHeader('X-Content-Type-Options', 'nosniff')
+            response.end(image)
+          } catch (error) {
+            sendError(response, error)
+          }
+        },
+      }))
 
       // GET /api/dsh-cloudq/plugins — manageable static plugins with their
       // live `disabled` state. Core layers (dsh-base / dsh-web-app) are
@@ -634,6 +650,23 @@ export function apply(ctx) {
         }),
       )
 
+      disposers.push(ctx.webServer.register({
+        kind: 'exact',
+        path: '/api/dsh-cloudq/credits',
+        handler: async (request, response) => {
+          try {
+            assertSafeRequest(request, 'GET')
+            const result = await callCloudq({
+              service: 'advisor', host: 'advisor.tencentcloudapi.com',
+              action: 'DescribeCloudQCreditOverview', version: '2020-07-21',
+            })
+            sendJson(response, 200, { ok: true, credits: result?.data ?? {} })
+          } catch (error) {
+            sendError(response, error)
+          }
+        },
+      }))
+
       // GET /api/dsh-cloudq/usage?start=&end=&limit=&offset= — CloudQ credit
       // overview + per-request detail rows (proxied via tcloud_api.py).
       disposers.push(
@@ -657,7 +690,7 @@ export function apply(ctx) {
                 throw new HttpError(400, 'invalid-pagination', 'The pagination parameters are invalid.')
               }
               const [overview, detail] = await Promise.all([
-                cloudqUsageOverview(),
+                url.searchParams.get('detailOnly') === 'true' ? Promise.resolve(null) : cloudqUsageOverview(),
                 cloudqUsageDetail({ startTime, endTime, limit, offset }),
               ])
               sendJson(response, 200, {
@@ -785,6 +818,43 @@ export function apply(ctx) {
           },
         }),
       )
+
+      disposers.push(ctx.webServer.register({
+        kind: 'exact',
+        path: '/api/dsh-cloudq/tessera/editor.js',
+        handler: (request, response) => {
+          try {
+            assertSafeRequest(request, 'GET')
+            const runtime = readFileSync(resolve(__dirname, '../assets/tessera/editor.js'))
+            response.setHeader('Content-Type', 'text/javascript; charset=utf-8')
+            response.setHeader('X-Content-Type-Options', 'nosniff')
+            response.setHeader('Cache-Control', 'no-cache')
+            response.end(runtime)
+          } catch (error) { sendError(response, error) }
+        },
+      }))
+      for (const [path, action] of [
+        ['/api/dsh-cloudq/architecture/detail', 'DescribeArchDetail'],
+        ['/api/dsh-cloudq/architecture/shapes', 'DescribeProductDiagramListV1'],
+      ]) {
+        disposers.push(ctx.webServer.register({
+          kind: 'exact', path,
+          handler: async (request, response) => {
+            try {
+              assertSafeRequest(request, 'GET')
+              const payload = {}
+              if (action === 'DescribeArchDetail') {
+                const archId = new URL(request.url, 'http://localhost').searchParams.get('archId') ?? ''
+                if (!/^arch-[a-z0-9]{4,64}$/i.test(archId)) throw new HttpError(400, 'invalid-arch-id', '架构 ID 格式不正确。')
+                payload.ArchId = archId
+              }
+              const result = await callCloudq({ service: 'advisor', host: 'advisor.tencentcloudapi.com', action, version: '2020-07-21', payload })
+              response.setHeader('Cache-Control', 'no-store')
+              sendJson(response, 200, { ok: true, data: result?.data ?? {} })
+            } catch (error) { sendError(response, error) }
+          },
+        }))
+      }
 
       return () => {
         for (const dispose of disposers) dispose()

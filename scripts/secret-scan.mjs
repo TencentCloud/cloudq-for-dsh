@@ -1,8 +1,8 @@
 import { readFile, readdir } from 'node:fs/promises'
 import { extname, join } from 'node:path'
 
-const roots = ['src', 'scripts', 'skills', 'tests', '.github']
-const allowed = new Set(['.js', '.mjs', '.ts', '.tsx', '.py', '.yml', '.yaml', '.json', '.md'])
+const roots = ['src', 'scripts', 'skills', 'tests', '.github', 'assets']
+const allowed = new Set(['.js', '.mjs', '.ts', '.tsx', '.py', '.yml', '.yaml', '.json', '.md', '.svg', '.txt'])
 const patterns = [
   /AKID[A-Za-z0-9]{12,}/,
   /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/,

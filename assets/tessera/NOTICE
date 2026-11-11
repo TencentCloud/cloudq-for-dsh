@@ -1,0 +1,20 @@
+Tessera runtime distribution
+
+Package: @tencent/tessera 0.1.0
+Copyright (c) 2026 Tencent
+License: MIT (see LICENSE)
+Source artifact: tessera/dist/index.umd.js
+Source checkout at collection: 705b3cbe4a248a5ffe9a640c826688b6f826f721
+The checkout reference does not certify that dist was rebuilt from this commit.
+Original artifact SHA-256: 58c3684a6fd92beacb2725a5315b7f2f3ad9fb37edd4d9f513b00311a12df132
+Distributed artifact SHA-256: 121215a0223e15d641bf601af993cc8432b8c19ef7e10f7f693075e95ca8cc94
+Local integration change: bind keydown to the editor element, not window,
+to scope keyboard shortcuts to the focused canvas in the DSH host.
+
+Bundled third-party code:
+- uuid 8.3.2: MIT; see UUID-LICENSE.
+- lz-string 1.5.0: WTFPL version 2; see LZ-STRING-LICENSE.
+
+This vendored artifact is loaded locally on demand; no npm runtime editor
+installation is required. Its default selection cursor references a public
+Tencent Cloud CDN SVG. Product diagrams are supplied by the Advisor API.
