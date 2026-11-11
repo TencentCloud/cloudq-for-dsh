@@ -24,6 +24,8 @@
 
 ![dsh-cloudq 演示](assets/demo.gif)
 
+录屏展示的是早期版本；0.4.0 的欢迎页、套餐用量与只读架构详情请参见上方功能说明。
+
 ## 环境要求
 
 - Node.js `>=22.19.0`
@@ -37,6 +39,10 @@
 ```sh
 dsh plugin --profile web add dsh-cloudq
 ```
+
+如果 npm 将某个版本标为 **Validating**，表示自动审核尚未完成，该版本暂不可公开安装。请等待状态变为 **Published**；版本徽章跟随 npm 的 `latest` 标签，而非 Git 仓库版本。
+
+0.4.0 公开可用后，可通过 `dsh plugin --profile web add dsh-cloudq@0.4.0` 显式安装。指定版本号不能绕过 npm 审核。
 
 安装完成后重启 Web Profile：
 
@@ -60,7 +66,9 @@ dsh plugin --profile web remove dsh-cloudq
 1. 打开 **设置 → 插件**，展开 **CloudQ** 卡片。
 2. 填入腾讯云 `SecretId` 和 `SecretKey`（可前往 [访问密钥控制台](https://console.cloud.tencent.com/cam/capi) 获取）。
 3. 点击 **测试连接** 验证密钥，再点击 **保存配置**；卡片显示 **AKSK有效** 即配置成功。
-4. 在对话输入区点击 **进入 CloudQ 模式**（或输入 `/cloudq`），即可开始提问，例如「帮我看看系统有哪些风险」。
+4. 从侧栏进入 CloudQ 会话，或通过 `/cloudq` 显式调用技能。未配置凭证时，也可在欢迎页点击 **配置 AK/SK**，在快捷弹窗中完成配置。
+5. 在首页切换问题分类，点击推荐卡片填入草稿，确认内容后使用 DSH 原生输入框发送。
+6. 点击页面右侧中部把手展开 **用量 / 制品 / 架构图**。用量页展示套餐与积分；架构图卡片打开本页只读画布，支持 2D/3D、适应、缩放及全屏，右上角 **在云顾问查看** 可跳转对应控制台页面。
 
 ## 工作原理
 

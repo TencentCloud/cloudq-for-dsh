@@ -24,6 +24,8 @@ Credentials remain in a local plaintext file, not an encrypted vault. Unix uses 
 
 ![dsh-cloudq demo](assets/demo.gif)
 
+The recording shows an earlier release; the 0.4.0 welcome page, usage panel and read-only viewer are described above.
+
 ## Requirements
 
 - Node.js `>=22.19.0`
@@ -37,6 +39,10 @@ Credentials remain in a local plaintext file, not an encrypted vault. Unix uses 
 ```sh
 dsh plugin --profile web add dsh-cloudq
 ```
+
+If npm lists a version as **Validating**, automated review is still pending and that version is not publicly installable yet. Wait until it shows **Published**; the version badge follows npm's `latest` tag, not the repository version.
+
+After 0.4.0 is publicly available, install that exact release with `dsh plugin --profile web add dsh-cloudq@0.4.0`. Pinning a version does not bypass npm review.
 
 Restart the Web profile after installation:
 
@@ -60,7 +66,9 @@ Restart the Web profile after changing the installed package set.
 1. Open **Settings → Plugins** and expand the **CloudQ** card.
 2. Enter your Tencent Cloud `SecretId` and `SecretKey` (available from the [CAM console](https://console.cloud.tencent.com/cam/capi)).
 3. Click **测试连接** to validate the pair, then **保存配置**. The card shows **AKSK有效** once the credential is active.
-4. Click **进入 CloudQ 模式** in the conversation input area — or type `/cloudq` — and start asking cloud operations questions, e.g. “帮我看看系统有哪些风险”.
+4. Open a CloudQ conversation from the sidebar, or explicitly invoke `/cloudq`. On the welcome page, unconfigured users can also click **配置 AK/SK** and complete setup in the quick dialog.
+5. Choose a suggestion category and click a card to fill the draft; review it and send with the native DSH composer.
+6. Use the handle at the right edge to open **Usage / Artifacts / Architecture**. Usage shows plans and credits; architecture cards open an in-page read-only viewer with 2D/3D, fit, zoom and fullscreen controls. **在云顾问查看** opens the corresponding console page.
 
 ## How it works
 
