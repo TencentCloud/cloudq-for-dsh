@@ -9,22 +9,22 @@ English | [简体中文](README-zh.md)
 
 CloudQ integration for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness). It adds a CloudQ mode to the Web profile, bundles the `cloudq` skill, and provides CloudQ usage and architecture views, local credential setup, and plugin management.
 
-## New in 0.4.0
+## Features
 
-- A new welcome page with categorized suggestions, promotions and a quick credential dialog; the native DSH composer remains unchanged.
-- Subscription quotas, active credit packs and paginated usage details; purchases open official Tencent Cloud pages.
-- In-page read-only architecture details with 2D/3D, zoom, fit, fullscreen and live light/dark themes.
-- A centered side handle replaces the top toggle. Suggestions remain on the welcome page instead of a separate panel tab.
+- **CloudQ conversations**: ask cloud operations questions through the bundled skill using the native DSH composer.
+- **Welcome suggestions**: browse categorized prompts and fill your draft with a click; configure credentials from the welcome page or plugin settings.
+- **Plans and usage**: view subscription quotas, active credit packs and paginated usage details, with links to official purchase pages.
+- **Artifacts**: browse and download conversation artifacts; the list refreshes silently after CloudQ replies complete.
+- **Read-only architecture viewer**: explore saved diagrams in-page with 2D/3D, zoom, fit and fullscreen controls, or open them in Cloud Advisor.
+- **Integrated workspace**: light/dark themes, a collapsible side panel, plugin management and update notifications.
 
-The bundled Tessera runtime prefers WebGPU and falls back to WebGL2. If neither backend works, open the diagram in Cloud Advisor. Third-party licenses and runtime provenance are included in [`assets/tessera/NOTICE`](assets/tessera/NOTICE). A customer-resource tab is not included in this release.
-
-Credentials remain in a local plaintext file, not an encrypted vault. Unix uses directory mode 700 and file mode 600; Windows access control depends on the user directory ACL. Use least-privilege keys and protect the local OS account.
+For version history, see the [changelog](CHANGELOG.md).
 
 ## Demo
 
 ![dsh-cloudq demo](assets/demo.gif)
 
-Version 0.4.0 demo: categorized welcome suggestions, subscription usage, artifacts, and the read-only architecture viewer with 2D/3D, zoom and fullscreen controls.
+Explore categorized suggestions, plans and usage, artifacts, and the read-only architecture viewer.
 
 ## Requirements
 
@@ -32,17 +32,14 @@ Version 0.4.0 demo: categorized welcome suggestions, subscription usage, artifac
 - DeepSeek Harness `0.1.1-rc.2` or a compatible newer `0.1.x` release
 - `pnpm` available to the `dsh plugin` command
 - macOS, Linux, or Windows
-- Optional: the CloudQ conversation mode is driven by the bundled skill and needs Python 3 available as `python3`; the settings, usage, inspiration, artifact, and architecture panels do not require Python
+- The conversation mode requires Python 3 available as `python3`. Credential setup, welcome suggestions, plans and usage, artifacts, and the architecture viewer do not require Python.
+- The architecture viewer requires WebGPU or WebGL2. The bundled Tessera runtime prefers WebGPU and falls back to WebGL2; if neither is available, use the Cloud Advisor link.
 
 ## Install
 
 ```sh
 dsh plugin --profile web add dsh-cloudq
 ```
-
-If npm lists a version as **Validating**, automated review is still pending and that version is not publicly installable yet. Wait until it shows **Published**; the version badge follows npm's `latest` tag, not the repository version.
-
-After 0.4.0 is publicly available, install that exact release with `dsh plugin --profile web add dsh-cloudq@0.4.0`. Pinning a version does not bypass npm review.
 
 Restart the Web profile after installation:
 
@@ -92,7 +89,7 @@ flowchart LR
 
 The settings card accepts a Tencent Cloud `SecretId`/`SecretKey` pair.
 
-- Credentials are stored locally at `~/.tencent-cloudq/credential.json` with owner-only permissions.
+- Credentials are stored in plaintext at `~/.tencent-cloudq/credential.json`, not in an encrypted vault. Unix uses directory mode 700 and file mode 600; Windows access control depends on the user directory ACL. Protect the local OS account.
 - Panel APIs sign and call Tencent Cloud in-process (native Node implementation); secrets never pass through any subprocess or appear in process lists.
 - Browser APIs return only credential state and masked identifiers; local credential paths and secret values are not returned.
 - Use the logout action to remove the stored credential.
@@ -112,15 +109,11 @@ Report security issues through [GitHub Issues](https://github.com/TencentCloud/c
 
 ## FAQ
 
-**Can't install or update to the latest version? (24-hour supply-chain cooling period)**
+**Can't install or update to the latest version?**
 
-pnpm 11 only installs versions that have been published for at least 24 hours. Right after a release, pin the version explicitly:
+Check the version status on npm first: **Validating** means automated review is pending and the version is not publicly available yet. Pinning a version cannot bypass this review.
 
-```sh
-dsh plugin --profile web add dsh-cloudq@0.3.0
-```
-
-or wait for the cooldown to expire and the bare command will resolve to the newest release.
+For a published version, pnpm 11's default 24-hour release-age policy may delay installation. Wait for the cooldown, or explicitly select a reviewed version with `dsh-cloudq@<version>`, subject to your local security policy.
 
 **Does it work on Windows? Do I need Python?**
 
@@ -128,11 +121,11 @@ Yes. The settings, usage, inspiration, artifact, and architecture panels are a n
 
 **Where is my AK/SK stored? Is it safe?**
 
-At `~/.tencent-cloudq/credential.json` (owner-only permissions). Panel APIs sign in-process; credentials never pass through a subprocess or appear in process lists. The **退出登录** action removes it.
+At `~/.tencent-cloudq/credential.json`. See [Credentials](#credentials) for storage and permission details. The **退出登录** action removes the local credential.
 
 **Why does 测试连接 fail?**
 
-On 0.3.0+ the panels no longer depend on Python. If it still fails, make sure the key belongs to the current account and that Smart Advisor (CloudQ) is enabled for it.
+Check that the local DSH service is running and can reach Tencent Cloud, then check the returned error for key validity, permissions and CloudQ activation. Connection testing does not require Python.
 
 ## Development
 
@@ -170,4 +163,4 @@ Source is reviewed and versioned in [TencentCloud/cloudq-for-dsh](https://github
 
 ## License
 
-MIT. See [`LICENSE`](LICENSE).
+The plugin is licensed under MIT. See [`LICENSE`](LICENSE). The bundled Tessera runtime and its third-party dependencies have separate notices and license texts in [`assets/tessera/NOTICE`](assets/tessera/NOTICE).

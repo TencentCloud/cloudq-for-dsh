@@ -9,22 +9,22 @@
 
 面向 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 的 CloudQ 集成插件。插件为 Web Profile 提供 CloudQ 模式，内置 `cloudq` Skill，并提供 CloudQ 用量、架构视图、本地凭证配置和插件管理能力。
 
-## 0.4.0 新能力
+## 功能介绍
 
-- 新会话欢迎页提供分类推荐问题、推广入口与快捷 AK/SK 配置弹窗；输入框保持 DSH 原生交互。
-- 套餐和用量页展示订阅计划、有效积分加量包和分页用量明细；购买在腾讯云官方页面完成。
-- 架构图点击后在本页只读查看，支持 2D/3D、缩放、适应、全屏和深浅色切换；右上角可前往云顾问。
-- 右侧灵感页签移除，首页灵感保留；侧边把手用于展开/折叠面板。
+- **CloudQ 对话**：通过内置技能进行云运维问答，使用 DSH 原生输入框提问。
+- **首页灵感**：按分类浏览推荐问题，点击填入草稿；可在首页快捷弹窗或插件设置中配置凭证。
+- **套餐和用量**：查看订阅额度、有效积分加量包及分页用量明细，前往官方页面购买套餐。
+- **会话制品**：浏览、下载会话产物，CloudQ 回复完成后列表后台静默刷新。
+- **只读架构画布**：在当前页面查看已保存的架构图，支持 2D/3D、缩放、适应及全屏，也可前往云顾问查看。
+- **工作台集成**：支持深浅色主题、可折叠侧面板、插件管理与版本更新提示。
 
-画布优先使用 WebGPU，不可用时由 Tessera 回退 WebGL2；不支持图形后端时可使用云顾问外链。Tessera 运行时及第三方许可证随包提供，详见 [`assets/tessera/NOTICE`](assets/tessera/NOTICE)。本期不包含客户资源 tab。
-
-凭证仍保存在本机明文文件中，并非加密保险库。Unix 使用目录 700、文件 600；Windows 的访问控制依赖用户目录 ACL。请使用最小权限密钥并妥善保护本机账户。
+版本变更记录请参阅[更新日志](CHANGELOG.md)。
 
 ## 演示
 
 ![dsh-cloudq 演示](assets/demo.gif)
 
-0.4.0 演示：欢迎页分类推荐、套餐用量、制品，以及支持 2D/3D、缩放和全屏的只读架构画布。
+演示内容：欢迎页分类推荐、套餐用量、会话制品及只读架构画布。
 
 ## 环境要求
 
@@ -32,17 +32,14 @@
 - DeepSeek Harness `0.1.1-rc.2` 或兼容的更高 `0.1.x` 版本
 - `dsh plugin` 命令可调用 `pnpm`
 - macOS、Linux 或 Windows
-- 可选：CloudQ 对话模式由内置 Skill 驱动，需可通过 `python3` 命令运行 Python 3；设置、用量、灵感、制品、架构图等面板功能不依赖 Python
+- CloudQ 对话模式需要可通过 `python3` 命令运行的 Python 3；凭证配置、首页灵感、套餐用量、制品和架构画布不依赖 Python。
+- 架构画布需要浏览器支持 WebGPU 或 WebGL2。内置 Tessera 优先使用 WebGPU，不可用时回退 WebGL2；两者均不可用时，可通过外链前往云顾问查看。
 
 ## 安装
 
 ```sh
 dsh plugin --profile web add dsh-cloudq
 ```
-
-如果 npm 将某个版本标为 **Validating**，表示自动审核尚未完成，该版本暂不可公开安装。请等待状态变为 **Published**；版本徽章跟随 npm 的 `latest` 标签，而非 Git 仓库版本。
-
-0.4.0 公开可用后，可通过 `dsh plugin --profile web add dsh-cloudq@0.4.0` 显式安装。指定版本号不能绕过 npm 审核。
 
 安装完成后重启 Web Profile：
 
@@ -92,7 +89,7 @@ flowchart LR
 
 设置卡片支持配置腾讯云 `SecretId` 和 `SecretKey` 凭证。
 
-- 凭证保存在本机 `~/.tencent-cloudq/credential.json`，文件权限仅允许当前用户访问。
+- 凭证以明文保存在本机 `~/.tencent-cloudq/credential.json`，并非加密保险库。Unix 使用目录 700、文件 600；Windows 的访问控制依赖用户目录 ACL，请妥善保护本机账户。
 - 面板接口在 Host 进程内完成签名与调用（Node 原生实现），凭证不经过任何子进程，不会出现在进程列表中。
 - 浏览器接口仅返回凭证状态和脱敏标识，不返回凭证内容或本地凭证路径。
 - 可通过退出登录操作删除本地凭证。
@@ -112,15 +109,11 @@ flowchart LR
 
 ## 常见问题
 
-**装/更新不到最新版本？（供应链 24 小时冷却期）**
+**装/更新不到最新版本？**
 
-pnpm 11 默认只安装发布满 24 小时的版本。刚发版后请用显式版本号：
+先查看 npm 上的版本状态：**Validating** 表示自动审核中，版本尚未公开可用，指定版本号也不能绕过审核。
 
-```sh
-dsh plugin --profile web add dsh-cloudq@0.3.0
-```
-
-或等待冷却期结束，裸命令即可解析到最新版本。
+对于已公开发布的版本，pnpm 11 默认的 24 小时发布时间限制可能延迟安装。可等待冷却期结束，或在确认版本可信后使用 `dsh-cloudq@<版本号>` 显式选择，仍需遵循本机安全策略。
 
 **Windows 能用吗？需要装 Python 吗？**
 
@@ -128,11 +121,11 @@ dsh plugin --profile web add dsh-cloudq@0.3.0
 
 **AK/SK 存在哪里？安全吗？**
 
-存于 `~/.tencent-cloudq/credential.json`（权限仅当前用户）。面板接口在进程内签名，凭证不经过子进程、不会出现在进程列表中。点「退出登录」即可删除。
+存于 `~/.tencent-cloudq/credential.json`，存储方式与权限边界见[凭证配置](#凭证配置)。点击「退出登录」可删除本地凭证。
 
 **为什么点「测试连接」失败？**
 
-0.3.0 起面板已不依赖 Python。若仍失败，请确认该密钥属于当前账号，且已为它开通智能顾问（CloudQ）。
+先确认本地 DSH 服务正在运行且能连接腾讯云，再根据返回错误检查密钥有效性、权限和 CloudQ 开通状态。测试连接不依赖 Python。
 
 ## 本地开发
 
@@ -170,4 +163,4 @@ cordis.patch.yml             DSH Bundle 配置层
 
 ## 许可证
 
-本项目采用 MIT 许可证，详情请参阅 [`LICENSE`](LICENSE)。
+插件采用 MIT 许可证，详情请参阅 [`LICENSE`](LICENSE)。内置 Tessera 运行时及其第三方依赖的声明与许可文本见 [`assets/tessera/NOTICE`](assets/tessera/NOTICE)。
