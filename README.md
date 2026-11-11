@@ -24,7 +24,7 @@ Credentials remain in a local plaintext file, not an encrypted vault. Unix uses 
 
 ![dsh-cloudq demo](assets/demo.gif)
 
-The recording shows an earlier release; the 0.4.0 welcome page, usage panel and read-only viewer are described above.
+Version 0.4.0 demo: categorized welcome suggestions, subscription usage, artifacts, and the read-only architecture viewer with 2D/3D, zoom and fullscreen controls.
 
 ## Requirements
 
