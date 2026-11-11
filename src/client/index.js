@@ -3,6 +3,9 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' })
 let react = require('react')
 react = __toESM(react, 1)
 let react_jsx_runtime = require('react/jsx-runtime')
+const { createWelcome } = require('./welcome.js')
+const { mountUsage } = require('./usage.js')
+const { mountArchitectureViewer } = require('./architecture-viewer.js')
 
 function __toESM(mod, isNodeMode, target) {
   target = mod != null ? __create(getProtoOf(mod)) : {}
@@ -1281,18 +1284,19 @@ body.dsh-cloudq-mode-active [class*=composerHero] [class*=root][class*=hero] {
 }
 .dsh-cloudq-convo-chip {
   position: fixed;
-  /* Below the conversation header divider (header bottom ≈76px) so the chip
-     never overlaps the Session log affordance in the title row. */
-  top: 88px;
-  right: 16px;
+  top: 50%;
+  right: 0;
+  transform: translateY(-50%);
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 24px;
+  height: 64px;
   padding: 0;
   border: 1px solid var(--dsw-alias-border-l2, #e1e4e8);
-  border-radius: 8px;
+  border-right: 0;
+  border-radius: 10px 0 0 10px;
+  box-shadow: -2px 0 8px rgba(0, 0, 0, .06);
   background: var(--dsw-alias-bg-card, #fff);
   color: var(--dsw-alias-label-secondary, #626a76);
   cursor: pointer;
@@ -1304,14 +1308,20 @@ body.dsh-cloudq-mode-active [class*=composerHero] [class*=root][class*=hero] {
   border-color: var(--dsw-alias-state-business-primary, #315efb);
   color: var(--dsw-alias-state-business-primary, #315efb);
 }
-.dsh-cloudq-convo-chip svg {
-  width: 18px;
-  height: 18px;
+.dsh-cloudq-convo-chip svg { display: none; }
+.dsh-cloudq-convo-chip::after {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-left: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(45deg);
 }
 .dsh-cloudq-convo-chip.is-open {
-  /* Leave a 12px gap so the chip doesn't kiss the rail's left edge. */
-  right: calc(var(--cloudq-rail-width, 720px) + 12px);
+  right: min(var(--cloudq-rail-width, 720px), 80vw);
 }
+.dsh-cloudq-convo-chip.is-open::after { transform: rotate(225deg); }
+.dsh-cloudq-convo-chip:focus-visible { outline: 2px solid var(--dsw-alias-state-business-primary, #006eff); outline-offset: -3px; }
 .dsh-cloudq-panel__rail {
   position: fixed;
   top: 0;
@@ -1335,22 +1345,42 @@ body.dsh-cloudq-mode-active [class*=composerHero] [class*=root][class*=hero] {
  behaves like a real in-flow pane rather than a floating drawer. */
   transition: padding-right .2s ease;
 }
-.dsh-cloudq-panel__rail-enter { padding-right: var(--cloudq-rail-width, 500px); }
+.dsh-cloudq-panel__rail-enter { padding-right: min(var(--cloudq-rail-width, 720px), 80vw); }
 .dsh-cloudq-panel__rail-leave { padding-right: 0; }
+body.dsh-cloudq-mode-active [data-conversation-scroll],
+body.dsh-cloudq-mode-active [class*=scrollBody] {
+  --dsh-scrollbar-width: 3px;
+  --dsh-scrollbar-thumb: var(--dsw-alias-border-l2, #e1e4e8);
+  --dsh-scrollbar-thumb-hover: var(--dsw-alias-label-tertiary, #9aa1ab);
+}
+@supports selector(::-webkit-scrollbar) {
+  body.dsh-cloudq-mode-active [data-conversation-scroll],
+  body.dsh-cloudq-mode-active [class*=scrollBody] {
+    scrollbar-width: auto;
+    scrollbar-color: auto;
+  }
+  body.dsh-cloudq-mode-active [data-conversation-scroll]::-webkit-scrollbar,
+  body.dsh-cloudq-mode-active [class*=scrollBody]::-webkit-scrollbar {
+    width: 3px;
+  }
+}
 .dsh-cloudq-panel__resizer {
-  flex: none;
-  width: 4px;
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -4px;
+  width: 8px;
+  z-index: 1;
   cursor: col-resize;
   background: transparent;
-  position: relative;
 }
 .dsh-cloudq-panel__resizer::after {
   content: '';
   position: absolute;
   top: 0;
   bottom: 0;
-  left: 1px;
-  width: 2px;
+  left: 3px;
+  width: 1px;
   background: var(--dsw-alias-border-l2, #e1e4e8);
   opacity: 0;
   transition: opacity .15s ease;
@@ -2117,19 +2147,43 @@ linear-gradient(-30deg, transparent 49.5%, #edf0f3 49.5%, #edf0f3 50.5%, transpa
   background-size: 80px 48px;
 }
 .dsh-cloudq-arch__image {
+  position: absolute;
+  inset: 0;
   display: block;
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
   object-position: center;
-  background: rgba(255, 255, 255, .92);
+  background: var(--dsw-alias-bg-card, #fff);
+  transition: opacity .15s ease;
 }
+button.dsh-cloudq-arch__card { padding: 0; font: inherit; text-align: left; color: inherit; cursor: pointer; }
 .dsh-cloudq-arch__placeholder {
-  padding: 0 12px;
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 12px;
+  background: var(--dsw-alias-bg-card, #fff);
   color: var(--dsw-alias-label-tertiary, #9aa1ab);
   font-size: 12px;
   text-align: center;
 }
+.dsh-cloudq-arch__placeholder.is-loading::before {
+  content: '';
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--dsw-alias-border-l2, #e1e4e8);
+  border-top-color: var(--dsw-alias-state-business-primary, #006eff);
+  border-radius: 50%;
+  animation: cloudq-preview-spin .8s linear infinite;
+}
+@keyframes cloudq-preview-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .dsh-cloudq-arch__placeholder.is-loading::before { animation: none; } }
 .dsh-cloudq-arch__footer {
   position: absolute;
   right: 0;
@@ -2338,7 +2392,14 @@ let artifactRetryTimer = 0
 let architectureRequestSeq = 0
 let architecturePickerCleanup = null
 
+let usageViewCleanup = null
+
 function renderUsageView() {
+  usageViewCleanup?.()
+  usageViewCleanup = mountUsage(panelBody, cloudqRequest)
+}
+
+function renderLegacyUsageView() {
   panelBody.textContent = ''
 
   // Overview: only the cumulative consumed credits, matching the CloudQ
@@ -3131,17 +3192,13 @@ function renderArchitectureView() {
           for (const architecture of architectures) {
             const imageUrl = safeDownloadUrl(architecture?.SvgURL)
             const archId = typeof architecture?.ArchId === 'string' ? architecture.ArchId.trim() : ''
-            const consoleUrl = archId
-              ? `https://console.cloud.tencent.com/advisor?archId=${encodeURIComponent(archId)}`
-              : ''
-            const card = document.createElement(consoleUrl ? 'a' : 'article')
+            const card = document.createElement(archId ? 'button' : 'article')
             card.className = 'dsh-cloudq-arch__card'
             card.dataset.testid = `cloudq-architecture-card-${architecture?.ArchId ?? 'unknown'}`
-            if (consoleUrl) {
-              card.href = consoleUrl
-              card.target = '_blank'
-              card.rel = 'noopener noreferrer'
-              card.setAttribute('aria-label', `打开架构图：${architecture?.ArchName || '未命名系统'}`)
+            if (archId) {
+              card.type = 'button'
+              card.setAttribute('aria-label', `查看架构图：${architecture?.ArchName || '未命名系统'}`)
+              card.addEventListener('click', () => openArchitectureDetail(archId, architecture?.ArchName))
             }
 
             const preview = document.createElement('div')
@@ -3153,17 +3210,29 @@ function renderArchitectureView() {
             if (imageUrl) {
               const image = document.createElement('img')
               image.className = 'dsh-cloudq-arch__image'
-              image.src = imageUrl
               image.alt = architecture?.ArchName || '架构图预览'
               image.loading = 'lazy'
               image.decoding = 'async'
               image.referrerPolicy = 'no-referrer'
-              image.addEventListener('load', () => placeholder.remove())
-              image.addEventListener('error', () => {
+              image.style.opacity = '0'
+              placeholder.classList.add('is-loading')
+              const loaded = () => {
+                image.style.opacity = '1'
+                placeholder.remove()
+              }
+              const failed = () => {
                 image.remove()
-                placeholder.textContent = consoleUrl ? '预览加载失败，点击打开架构图' : '预览加载失败'
-              })
+                placeholder.classList.remove('is-loading')
+                placeholder.textContent = archId ? '缩略图加载失败，点击查看详情' : '暂无预览'
+              }
+              image.addEventListener('load', loaded, { once: true })
+              image.addEventListener('error', failed, { once: true })
+              image.src = imageUrl
               preview.appendChild(image)
+              if (image.complete) {
+                if (image.naturalWidth > 0) loaded()
+                else failed()
+              }
             }
 
             const footer = document.createElement('div')
@@ -3217,13 +3286,29 @@ function renderArchitectureView() {
     })
 }
 
+let architectureViewerCleanup = null
+
+function openArchitectureDetail(archId, name) {
+  architectureRequestSeq += 1
+  architecturePickerCleanup?.()
+  architecturePickerCleanup = null
+  architectureViewerCleanup?.()
+  architectureViewerCleanup = mountArchitectureViewer(panelBody, {
+    archId, name, request: cloudqRequest,
+    onBack: () => renderPanel(),
+  })
+}
+
 function renderPanel() {
+  architectureViewerCleanup?.()
+  architectureViewerCleanup = null
+  usageViewCleanup?.()
+  usageViewCleanup = null
   if (architecturePickerCleanup) {
     architecturePickerCleanup()
     architecturePickerCleanup = null
   }
   if (panelView === 'usage') renderUsageView()
-  else if (panelView === 'inspiration') renderInspirationView()
   else if (panelView === 'artifact') renderArtifactView()
   else renderArchitectureView()
 }
@@ -3238,7 +3323,8 @@ function openPanel() {
   if (chip) chip.classList.add('is-open')
   // Seed the CSS variable on every open so the chip, padding-right, and
   // rail stay in lock-step before the resizer fires.
-  document.documentElement.style.setProperty('--cloudq-rail-width', `${PANEL_DEFAULT_WIDTH}px`)
+  const preferredWidth = Number.parseFloat(panelEl?.style.width) || PANEL_DEFAULT_WIDTH
+  document.documentElement.style.setProperty('--cloudq-rail-width', `${preferredWidth}px`)
   if (!panelEl) {
     // Build once; reuse across opens so the resizer/state persists.
     panelEl = document.createElement('div')
@@ -3274,7 +3360,6 @@ function openPanel() {
 
     const PANEL_VIEWS = [
       { value: 'usage', label: '用量' },
-      { value: 'inspiration', label: '灵感' },
       { value: 'artifact', label: '制品' },
       { value: 'architecture', label: '架构图' },
     ]
@@ -3324,6 +3409,10 @@ function openPanel() {
 }
 
 function closePanel() {
+  architectureViewerCleanup?.()
+  architectureViewerCleanup = null
+  usageViewCleanup?.()
+  usageViewCleanup = null
   panelExpanded = false
   if (architecturePickerCleanup) {
     architecturePickerCleanup()
@@ -3369,23 +3458,16 @@ function buildIconSvg() {
   return svg
 }
 
-function buildCloudqHeroPane() {
-  const wrap = document.createElement('div')
-  wrap.dataset.cloudqHero = 'true'
-  wrap.style.position = 'relative'
-  const title = document.createElement('h1')
-  title.className = 'dsh-cloudq-hero-title'
-  title.textContent = CLOUDQ_HEADLINE
-  const subtitle = document.createElement('p')
-  subtitle.className = 'dsh-cloudq-hero-subtitle'
-  subtitle.textContent = CLOUDQ_SUBTITLE
-  const questions = document.createElement('div')
-  questions.className = 'dsh-cloudq-hero-questions'
-  CLOUDQ_QUESTIONS.forEach((q) => questions.appendChild(buildCloudqQuestionButton(q)))
-  wrap.appendChild(title)
-  wrap.appendChild(subtitle)
-  wrap.appendChild(questions)
-  return wrap
+let cloudqWelcome = null
+let cloudqWelcomeHost = null
+let cloudqWelcomeSession = null
+
+function disposeCloudqWelcome() {
+  cloudqWelcome?.dispose()
+  cloudqWelcomeHost?.removeAttribute('data-cloudq-welcome-host')
+  cloudqWelcome = null
+  cloudqWelcomeHost = null
+  cloudqWelcomeSession = null
 }
 
 // Hero content is rendered inside a relative wrapper so we can pin the
@@ -3407,27 +3489,18 @@ function buildCloudqExpandChip(parent, onClick) {
 // For non-CloudQ sessions we hide the pane via [data-cloudq-hero='active']
 // attribute so a session switch leaves nothing behind.
 function findHeroRoot() {
-  // Walk up from the headlineText span: the React tree exposes
-  // a CSS-module-mangled "EmptyHero" root whose immediate ancestor is a
-  // two-line stack (headline row + workspace row). Picking that root keeps
-  // our pane visually attached to the existing hero chrome.
-  const headline = document.querySelector('[class*=headlineText]')
-  if (!headline) return null
-  const stack = headline.parentElement
-  if (!stack) return null
-  // The hero shell root sits one level above the stack.
-  return stack.parentElement
+  return document.querySelector('[class*=composerHero]')
 }
 
 function applyCloudqHero(active) {
   const heroRoot = findHeroRoot()
   document.body.classList.toggle('dsh-cloudq-mode-active', active)
 
+  const currentId = cloudqCtx?.sessions?.list?.getSnapshot?.()?.current
+  if (!active || !heroRoot || cloudqWelcomeHost !== heroRoot || cloudqWelcomeSession !== currentId) {
+    disposeCloudqWelcome()
+  }
   if (!active) {
-    if (heroRoot) {
-      const pane = heroRoot.querySelector('[data-cloudq-hero="true"]')
-      if (pane) pane.remove()
-    }
     document.querySelector('[data-cloudq-convo-chip="true"]')?.remove()
     // Leave CloudQ mode: drop the side panel too.
     closePanel()
@@ -3436,17 +3509,25 @@ function applyCloudqHero(active) {
 
   // Blank sessions own the CloudQ welcome pane; materialized sessions no
   // longer have an EmptyHero root, but they still need the panel toggle.
-  if (heroRoot) {
-    let pane = heroRoot.querySelector('[data-cloudq-hero="true"]')
-    if (!pane) {
-      pane = buildCloudqHeroPane()
-      const stack = heroRoot.querySelector('[class*=headlineText]')?.parentElement
-      if (stack && stack.parentElement === heroRoot) {
-        stack.insertAdjacentElement('afterend', pane)
-      } else {
-        heroRoot.appendChild(pane)
-      }
-    }
+  if (heroRoot && !cloudqWelcome) {
+    cloudqWelcomeHost = heroRoot
+    cloudqWelcomeSession = currentId
+    cloudqWelcome = createWelcome({
+      loadInspirations: () => requireCloudqCredential().then(() => cloudqRequest(API_INSPIRATIONS)),
+      credentialRequest: cloudqRequest,
+      onArchitecture: () => {
+        panelView = 'architecture'
+        if (!panelExpanded) openPanel()
+        else renderPanel()
+      },
+      onDraft: (text) => {
+        if (cloudqCtx?.sessions?.list?.getSnapshot?.()?.current !== currentId) return
+        window.dispatchEvent(new CustomEvent('dsh-cloudq:draft', { detail: text }))
+      },
+    })
+    heroRoot.setAttribute('data-cloudq-welcome-host', '')
+    heroRoot.prepend(cloudqWelcome.header)
+    heroRoot.append(cloudqWelcome.bottom)
   }
 
   // Mount against document.body rather than EmptyHero so the icon survives
@@ -3527,14 +3608,13 @@ function installCloudqHero() {
       newSessionListenerAttached = false
       newSessionButton = null
     }
-    const heroRoot = findHeroRoot()
-    if (heroRoot) {
-      const pane = heroRoot.querySelector('[data-cloudq-hero="true"]')
-      if (pane) pane.remove()
-    }
+    disposeCloudqWelcome()
+    document.body.classList.remove('dsh-cloudq-mode-active')
     document.querySelector('[data-cloudq-convo-chip="true"]')?.remove()
-    // Tear down the side panel (reused element + state).
-    panelExpanded = false
+    closePanel()
+    window.clearTimeout(artifactRefreshTimer)
+    window.clearTimeout(artifactRetryTimer)
+    document.documentElement.classList.remove('dsh-cloudq-panel__rail-enter', 'dsh-cloudq-panel__rail-leave')
     if (panelEl) {
       panelEl.remove()
       panelEl = null

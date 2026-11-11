@@ -1,6 +1,6 @@
 export default [
   {
-    ignores: ['lib/**', 'coverage/**', 'node_modules/**'],
+    ignores: ['lib/**', 'coverage/**', 'node_modules/**', 'assets/tessera/**'],
   },
   {
     files: ['src/**/*.js', 'scripts/**/*.mjs', 'tests/**/*.js', 'tests/**/*.ts'],

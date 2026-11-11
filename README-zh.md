@@ -9,6 +9,17 @@
 
 面向 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 的 CloudQ 集成插件。插件为 Web Profile 提供 CloudQ 模式，内置 `cloudq` Skill，并提供 CloudQ 用量、架构视图、本地凭证配置和插件管理能力。
 
+## 0.4.0 新能力
+
+- 新会话欢迎页提供分类推荐问题、推广入口与快捷 AK/SK 配置弹窗；输入框保持 DSH 原生交互。
+- 套餐和用量页展示订阅计划、有效积分加量包和分页用量明细；购买在腾讯云官方页面完成。
+- 架构图点击后在本页只读查看，支持 2D/3D、缩放、适应、全屏和深浅色切换；右上角可前往云顾问。
+- 右侧灵感页签移除，首页灵感保留；侧边把手用于展开/折叠面板。
+
+画布优先使用 WebGPU，不可用时由 Tessera 回退 WebGL2；不支持图形后端时可使用云顾问外链。Tessera 运行时及第三方许可证随包提供，详见 [`assets/tessera/NOTICE`](assets/tessera/NOTICE)。本期不包含客户资源 tab。
+
+凭证仍保存在本机明文文件中，并非加密保险库。Unix 使用目录 700、文件 600；Windows 的访问控制依赖用户目录 ACL。请使用最小权限密钥并妥善保护本机账户。
+
 ## 演示
 
 ![dsh-cloudq 演示](assets/demo.gif)
